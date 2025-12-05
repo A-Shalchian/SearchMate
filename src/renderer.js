@@ -4,10 +4,12 @@ const searchInput = document.getElementById('searchInput');
 const resultsList = document.getElementById('resultsList');
 const emptyState = document.getElementById('emptyState');
 const resultCount = document.getElementById('resultCount');
+const contextMenu = document.getElementById('contextMenu');
 
 let results = [];
 let selectedIndex = -1;
 let searchTimeout = null;
+let contextMenuTarget = null;
 
 // Focus input when window is shown
 ipcRenderer.on('window-shown', () => {
@@ -17,7 +19,12 @@ ipcRenderer.on('window-shown', () => {
 
 // Clear on hide
 ipcRenderer.on('window-hidden', () => {
-  // Keep the search state for when window reopens
+  hideContextMenu();
+});
+
+// Index ready notification
+ipcRenderer.on('index-ready', (event, count) => {
+  console.log(`Index ready with ${count} files`);
 });
 
 // Search input handler with debounce
@@ -69,7 +76,11 @@ searchInput.addEventListener('keydown', (e) => {
       break;
     case 'Escape':
       e.preventDefault();
-      ipcRenderer.send('hide-window');
+      if (contextMenu.classList.contains('visible')) {
+        hideContextMenu();
+      } else {
+        ipcRenderer.send('hide-window');
+      }
       break;
   }
 });
@@ -132,7 +143,7 @@ function renderResults(query) {
     `;
   }).join('');
 
-  // Add click handlers
+  // Add click and context menu handlers
   resultsList.querySelectorAll('.result-item').forEach((item) => {
     const index = parseInt(item.dataset.index);
 
@@ -142,6 +153,11 @@ function renderResults(query) {
       } else {
         openPath(results[index].path);
       }
+    });
+
+    item.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY, results[index]);
     });
 
     item.addEventListener('mouseenter', () => {
@@ -201,6 +217,78 @@ function showError() {
   resultsList.classList.add('hidden');
   resultCount.textContent = 'Error';
 }
+
+// Context Menu
+function showContextMenu(x, y, item) {
+  contextMenuTarget = item;
+
+  // Position the menu
+  contextMenu.style.left = `${x}px`;
+  contextMenu.style.top = `${y}px`;
+  contextMenu.classList.add('visible');
+
+  // Adjust position if menu goes off screen
+  const rect = contextMenu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) {
+    contextMenu.style.left = `${window.innerWidth - rect.width - 10}px`;
+  }
+  if (rect.bottom > window.innerHeight) {
+    contextMenu.style.top = `${window.innerHeight - rect.height - 10}px`;
+  }
+}
+
+function hideContextMenu() {
+  contextMenu.classList.remove('visible');
+  contextMenuTarget = null;
+}
+
+// Hide context menu when clicking elsewhere
+document.addEventListener('click', (e) => {
+  if (!contextMenu.contains(e.target)) {
+    hideContextMenu();
+  }
+});
+
+// Context menu actions
+contextMenu.querySelectorAll('.context-menu-item').forEach((item) => {
+  item.addEventListener('click', async () => {
+    if (!contextMenuTarget) return;
+
+    const action = item.dataset.action;
+    const filePath = contextMenuTarget.path;
+
+    switch (action) {
+      case 'open':
+        await openPath(filePath);
+        break;
+      case 'open-folder':
+        await ipcRenderer.invoke('open-folder', filePath);
+        ipcRenderer.send('hide-window');
+        break;
+      case 'open-vscode':
+        await ipcRenderer.invoke('open-in-vscode', filePath);
+        ipcRenderer.send('hide-window');
+        break;
+      case 'open-terminal':
+        await ipcRenderer.invoke('open-in-terminal', filePath);
+        ipcRenderer.send('hide-window');
+        break;
+      case 'open-terminal-claude':
+        await ipcRenderer.invoke('open-terminal-claude', filePath);
+        ipcRenderer.send('hide-window');
+        break;
+      case 'open-vscode-claude':
+        await ipcRenderer.invoke('open-vscode-claude', filePath);
+        ipcRenderer.send('hide-window');
+        break;
+      case 'show-in-explorer':
+        await openInExplorer(filePath);
+        break;
+    }
+
+    hideContextMenu();
+  });
+});
 
 async function openPath(filePath) {
   const result = await ipcRenderer.invoke('open-path', filePath);

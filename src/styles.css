@@ -214,3 +214,52 @@ kbd {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  background: rgba(40, 40, 40, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: none;
+  backdrop-filter: blur(20px);
+}
+
+.context-menu.visible {
+  display: block;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.context-menu-item:hover {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.context-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.context-menu-item:hover svg {
+  opacity: 1;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 6px 0;
+}
