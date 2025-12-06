@@ -127,7 +127,7 @@ function handleContextMenuKeys(e) {
   }
 
   const keyNum = parseInt(e.key);
-  if (keyNum >= 1 && keyNum <= 5) {
+  if (keyNum >= 1 && keyNum <= 6) {
     e.preventDefault();
     const menuItem = contextMenu.querySelector(`[data-key="${keyNum}"]`);
     if (menuItem) {
@@ -228,6 +228,11 @@ function renderResults(query) {
   updateSelection();
 
   resultCount.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
+
+  // Apply current font size to new results
+  ipcRenderer.invoke('get-settings').then(settings => {
+    applyFontSize(settings.fontSize);
+  });
 }
 
 function highlightText(text, searchTerms) {
@@ -337,6 +342,9 @@ contextMenu.querySelectorAll('.context-menu-item').forEach((item) => {
       case 'show-in-explorer':
         await openInExplorer(filePath);
         break;
+      case 'copy-path':
+        await navigator.clipboard.writeText(filePath);
+        break;
     }
 
     hideContextMenu();
@@ -357,5 +365,106 @@ async function openInExplorer(filePath) {
   }
 }
 
+// Settings Panel
+const settingsPanel = document.getElementById('settingsPanel');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsClose = document.getElementById('settingsClose');
+const positionGrid = document.getElementById('positionGrid');
+const fontSizeSlider = document.getElementById('fontSizeSlider');
+const fontSizeValue = document.getElementById('fontSizeValue');
+const opacitySlider = document.getElementById('opacitySlider');
+const opacityValue = document.getElementById('opacityValue');
+
+let settingsOpen = false;
+
+function openSettings() {
+  settingsPanel.classList.add('visible');
+  settingsOpen = true;
+}
+
+function closeSettings() {
+  settingsPanel.classList.remove('visible');
+  settingsOpen = false;
+  searchInput.focus();
+}
+
+settingsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  openSettings();
+});
+
+settingsClose.addEventListener('click', closeSettings);
+
+// Load settings on init
+async function loadSettings() {
+  const settings = await ipcRenderer.invoke('get-settings');
+
+  // Update position buttons
+  positionGrid.querySelectorAll('.position-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.position === settings.position);
+  });
+
+  // Update sliders
+  fontSizeSlider.value = settings.fontSize;
+  fontSizeValue.textContent = settings.fontSize;
+  opacitySlider.value = settings.opacity;
+  opacityValue.textContent = settings.opacity;
+
+  // Apply font size
+  document.documentElement.style.setProperty('--base-font-size', `${settings.fontSize}px`);
+  applyFontSize(settings.fontSize);
+}
+
+function applyFontSize(size) {
+  document.querySelector('.result-name')?.style.setProperty('font-size', `${size}px`);
+  document.querySelectorAll('.result-name').forEach(el => {
+    el.style.fontSize = `${size}px`;
+  });
+  document.querySelectorAll('.result-path').forEach(el => {
+    el.style.fontSize = `${size - 2}px`;
+  });
+}
+
+// Position buttons
+positionGrid.querySelectorAll('.position-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const position = btn.dataset.position;
+    await ipcRenderer.invoke('set-setting', 'position', position);
+
+    positionGrid.querySelectorAll('.position-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Font size slider
+fontSizeSlider.addEventListener('input', async (e) => {
+  const size = parseInt(e.target.value);
+  fontSizeValue.textContent = size;
+  applyFontSize(size);
+  await ipcRenderer.invoke('set-setting', 'fontSize', size);
+});
+
+// Opacity slider
+opacitySlider.addEventListener('input', async (e) => {
+  const opacity = parseInt(e.target.value);
+  opacityValue.textContent = opacity;
+  await ipcRenderer.invoke('set-setting', 'opacity', opacity);
+});
+
+// Close settings on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && settingsOpen) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeSettings();
+  }
+});
+
+// Prevent settings panel clicks from closing window
+settingsPanel.addEventListener('click', (e) => {
+  e.stopPropagation();
+});
+
 // Initialize
+loadSettings();
 showEmptyState();

@@ -3,6 +3,28 @@ const path = require('path');
 const fs = require('fs');
 const { exec, spawn } = require('child_process');
 
+let store = null;
+const defaultSettings = {
+  position: 'center',
+  fontSize: 14,
+  opacity: 95,
+};
+
+// Initialize store asynchronously
+async function initStore() {
+  const Store = (await import('electron-store')).default;
+  store = new Store({ defaults: defaultSettings });
+}
+
+// Helper to get setting with fallback
+function getSetting(key) {
+  return store ? store.get(key) : defaultSettings[key];
+}
+
+function setSetting(key, value) {
+  if (store) store.set(key, value);
+}
+
 let mainWindow = null;
 let tray = null;
 let isVisible = false;
@@ -60,19 +82,43 @@ function toggleWindow() {
   }
 }
 
+function getWindowPosition(display, windowWidth, windowHeight) {
+  const { x, y, width, height } = display.workArea;
+  const position = getSetting('position');
+  const padding = 20;
+
+  switch (position) {
+    case 'top':
+      return { x: Math.floor(x + (width - windowWidth) / 2), y: y + padding };
+    case 'top-left':
+      return { x: x + padding, y: y + padding };
+    case 'top-right':
+      return { x: x + width - windowWidth - padding, y: y + padding };
+    case 'bottom':
+      return { x: Math.floor(x + (width - windowWidth) / 2), y: y + height - windowHeight - padding };
+    case 'bottom-left':
+      return { x: x + padding, y: y + height - windowHeight - padding };
+    case 'bottom-right':
+      return { x: x + width - windowWidth - padding, y: y + height - windowHeight - padding };
+    case 'center':
+    default:
+      return { x: Math.floor(x + (width - windowWidth) / 2), y: Math.floor(y + height * 0.2) };
+  }
+}
+
 function showWindow() {
   if (mainWindow) {
     const cursor = screen.getCursorScreenPoint();
     const activeDisplay = screen.getDisplayNearestPoint(cursor);
-    const { x, y, width, height } = activeDisplay.workArea;
 
     const windowWidth = 700;
     const windowHeight = 500;
 
-    mainWindow.setPosition(
-      Math.floor(x + (width - windowWidth) / 2),
-      Math.floor(y + height * 0.2)
-    );
+    const pos = getWindowPosition(activeDisplay, windowWidth, windowHeight);
+    mainWindow.setPosition(pos.x, pos.y);
+
+    // Apply opacity
+    mainWindow.setOpacity(getSetting('opacity') / 100);
 
     mainWindow.show();
     mainWindow.focus();
@@ -133,7 +179,8 @@ function createTray() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await initStore();
   createWindow();
   createTray();
 
@@ -455,6 +502,38 @@ ipcMain.handle('open-vscode-claude', async (event, filePath) => {
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+// Settings IPC handlers
+ipcMain.handle('get-settings', () => {
+  return {
+    position: getSetting('position'),
+    fontSize: getSetting('fontSize'),
+    opacity: getSetting('opacity'),
+  };
+});
+
+ipcMain.handle('set-setting', (event, key, value) => {
+  setSetting(key, value);
+
+  if (mainWindow) {
+    // Apply opacity immediately if changed
+    if (key === 'opacity') {
+      mainWindow.setOpacity(value / 100);
+    }
+
+    // Apply position immediately if changed
+    if (key === 'position') {
+      const cursor = screen.getCursorScreenPoint();
+      const activeDisplay = screen.getDisplayNearestPoint(cursor);
+      const windowWidth = 700;
+      const windowHeight = 500;
+      const pos = getWindowPosition(activeDisplay, windowWidth, windowHeight);
+      mainWindow.setBounds({ x: pos.x, y: pos.y, width: windowWidth, height: windowHeight });
+    }
+  }
+
+  return { success: true };
 });
 
 ipcMain.on('hide-window', () => {
