@@ -1,6 +1,6 @@
 {
   "name": "searchmate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A fast file search bar app like Everything",
   "main": "src/main.js",
   "scripts": {
@@ -13,7 +13,11 @@
     "version:minor": "npm version minor",
     "version:major": "npm version major"
   },
-  "keywords": ["search", "files", "electron"],
+  "keywords": [
+    "search",
+    "files",
+    "electron"
+  ],
   "author": "Ryan",
   "license": "MIT",
   "devDependencies": {
@@ -36,11 +40,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "src/icon.png"
