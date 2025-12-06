@@ -1,15 +1,22 @@
 const { ipcRenderer } = require('electron');
 
 const searchInput = document.getElementById('searchInput');
+const searchWrapper = document.querySelector('.search-wrapper');
 const resultsList = document.getElementById('resultsList');
 const emptyState = document.getElementById('emptyState');
 const resultCount = document.getElementById('resultCount');
 const contextMenu = document.getElementById('contextMenu');
 
+// Click anywhere on search wrapper to focus input
+searchWrapper.addEventListener('click', () => {
+  searchInput.focus();
+});
+
 let results = [];
 let selectedIndex = -1;
 let searchTimeout = null;
 let contextMenuTarget = null;
+let contextMenuIndex = -1;
 
 // Focus input when window is shown
 ipcRenderer.on('window-shown', () => {
@@ -55,6 +62,11 @@ searchInput.addEventListener('input', (e) => {
 
 // Keyboard navigation
 searchInput.addEventListener('keydown', (e) => {
+  if (contextMenu.classList.contains('visible')) {
+    handleContextMenuKeys(e);
+    return;
+  }
+
   switch (e.key) {
     case 'ArrowDown':
       e.preventDefault();
@@ -67,23 +79,69 @@ searchInput.addEventListener('keydown', (e) => {
     case 'Enter':
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < results.length) {
-        if (e.ctrlKey) {
-          openInExplorer(results[selectedIndex].path);
-        } else {
-          openPath(results[selectedIndex].path);
+        openPath(results[selectedIndex].path);
+      }
+      break;
+    case 'Control':
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < results.length) {
+        const selectedItem = resultsList.querySelector('.result-item.selected');
+        if (selectedItem) {
+          const rect = selectedItem.getBoundingClientRect();
+          showContextMenu(rect.right - 150, rect.top, results[selectedIndex]);
         }
       }
       break;
     case 'Escape':
       e.preventDefault();
-      if (contextMenu.classList.contains('visible')) {
-        hideContextMenu();
-      } else {
-        ipcRenderer.send('hide-window');
-      }
+      ipcRenderer.send('hide-window');
       break;
   }
 });
+
+function handleContextMenuKeys(e) {
+  const menuItems = contextMenu.querySelectorAll('.context-menu-item');
+
+  switch (e.key) {
+    case 'Escape':
+    case 'Control':
+      e.preventDefault();
+      hideContextMenu();
+      return;
+    case 'ArrowDown':
+      e.preventDefault();
+      contextMenuIndex = (contextMenuIndex + 1) % menuItems.length;
+      updateContextMenuSelection();
+      return;
+    case 'ArrowUp':
+      e.preventDefault();
+      contextMenuIndex = (contextMenuIndex - 1 + menuItems.length) % menuItems.length;
+      updateContextMenuSelection();
+      return;
+    case 'Enter':
+      e.preventDefault();
+      if (contextMenuIndex >= 0 && menuItems[contextMenuIndex]) {
+        menuItems[contextMenuIndex].click();
+      }
+      return;
+  }
+
+  const keyNum = parseInt(e.key);
+  if (keyNum >= 1 && keyNum <= 5) {
+    e.preventDefault();
+    const menuItem = contextMenu.querySelector(`[data-key="${keyNum}"]`);
+    if (menuItem) {
+      menuItem.click();
+    }
+  }
+}
+
+function updateContextMenuSelection() {
+  const menuItems = contextMenu.querySelectorAll('.context-menu-item');
+  menuItems.forEach((item, index) => {
+    item.classList.toggle('selected', index === contextMenuIndex);
+  });
+}
 
 function selectNext() {
   if (results.length === 0) return;
@@ -221,13 +279,14 @@ function showError() {
 // Context Menu
 function showContextMenu(x, y, item) {
   contextMenuTarget = item;
+  contextMenuIndex = 0;
 
-  // Position the menu
   contextMenu.style.left = `${x}px`;
   contextMenu.style.top = `${y}px`;
   contextMenu.classList.add('visible');
 
-  // Adjust position if menu goes off screen
+  updateContextMenuSelection();
+
   const rect = contextMenu.getBoundingClientRect();
   if (rect.right > window.innerWidth) {
     contextMenu.style.left = `${window.innerWidth - rect.width - 10}px`;
@@ -240,6 +299,8 @@ function showContextMenu(x, y, item) {
 function hideContextMenu() {
   contextMenu.classList.remove('visible');
   contextMenuTarget = null;
+  contextMenuIndex = -1;
+  updateContextMenuSelection();
 }
 
 // Hide context menu when clicking elsewhere
@@ -261,10 +322,6 @@ contextMenu.querySelectorAll('.context-menu-item').forEach((item) => {
       case 'open':
         await openPath(filePath);
         break;
-      case 'open-folder':
-        await ipcRenderer.invoke('open-folder', filePath);
-        ipcRenderer.send('hide-window');
-        break;
       case 'open-vscode':
         await ipcRenderer.invoke('open-in-vscode', filePath);
         ipcRenderer.send('hide-window');
@@ -275,10 +332,6 @@ contextMenu.querySelectorAll('.context-menu-item').forEach((item) => {
         break;
       case 'open-terminal-claude':
         await ipcRenderer.invoke('open-terminal-claude', filePath);
-        ipcRenderer.send('hide-window');
-        break;
-      case 'open-vscode-claude':
-        await ipcRenderer.invoke('open-vscode-claude', filePath);
         ipcRenderer.send('hide-window');
         break;
       case 'show-in-explorer':

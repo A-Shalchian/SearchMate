@@ -387,9 +387,11 @@ ipcMain.handle('open-folder', async (event, filePath) => {
 
 ipcMain.handle('open-in-vscode', async (event, filePath) => {
   try {
-    exec(`code "${filePath}"`, (error) => {
+    exec(`code "${filePath}"`, { shell: true }, (error) => {
       if (error) {
-        exec(`"%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe" "${filePath}"`);
+        // Fallback to full path
+        const vscodePath = path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe');
+        exec(`"${vscodePath}" "${filePath}"`, { shell: true });
       }
     });
     return { success: true };
@@ -403,9 +405,9 @@ ipcMain.handle('open-in-terminal', async (event, filePath) => {
     const stats = await fs.promises.stat(filePath);
     const folderPath = stats.isDirectory() ? filePath : path.dirname(filePath);
 
-    exec(`start wt -d "${folderPath}"`, (error) => {
+    exec(`start wt -d "${folderPath}"`, { shell: true }, (error) => {
       if (error) {
-        exec(`start cmd /k "cd /d "${folderPath}""`);
+        exec(`start cmd /k "cd /d "${folderPath}""`, { shell: true });
       }
     });
     return { success: true };
@@ -419,9 +421,9 @@ ipcMain.handle('open-terminal-claude', async (event, filePath) => {
     const stats = await fs.promises.stat(filePath);
     const folderPath = stats.isDirectory() ? filePath : path.dirname(filePath);
 
-    exec(`start wt -d "${folderPath}" cmd /k "claude"`, (error) => {
+    exec(`start wt -d "${folderPath}" cmd /k "claude"`, { shell: true }, (error) => {
       if (error) {
-        exec(`start cmd /k "cd /d "${folderPath}" && claude"`);
+        exec(`start cmd /k "cd /d "${folderPath}" && claude"`, { shell: true });
       }
     });
     return { success: true };
@@ -435,11 +437,20 @@ ipcMain.handle('open-vscode-claude', async (event, filePath) => {
     const stats = await fs.promises.stat(filePath);
     const folderPath = stats.isDirectory() ? filePath : path.dirname(filePath);
 
-    exec(`code "${folderPath}" && timeout /t 1 && code -r --command workbench.action.terminal.new && timeout /t 1 && code -r --command workbench.action.terminal.sendSequence "{\\"text\\":\\"claude\\\\n\\"}"`, (error) => {
-      if (error) {
-        exec(`code "${folderPath}"`);
-      }
-    });
+    // Open VS Code with the folder
+    exec(`code "${folderPath}"`, { shell: true });
+
+    // Wait for VS Code to open, then open terminal and type claude
+    setTimeout(() => {
+      exec(`code -r --command workbench.action.terminal.new`, { shell: true });
+
+      // Wait for terminal to open, then send keystrokes
+      setTimeout(() => {
+        const psCommand = `powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('claude{ENTER}')"`;
+        exec(psCommand, { shell: true });
+      }, 800);
+    }, 2000);
+
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
