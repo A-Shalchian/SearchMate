@@ -1,6 +1,6 @@
 {
   "name": "searchmate",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A fast file search bar app like Everything",
   "main": "src/main.js",
   "scripts": {
@@ -18,7 +18,7 @@
     "files",
     "electron"
   ],
-  "author": "Ryan",
+  "author": "Arash Shalchian",
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.2.0",
