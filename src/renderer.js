@@ -7,7 +7,6 @@ const emptyState = document.getElementById('emptyState');
 const resultCount = document.getElementById('resultCount');
 const contextMenu = document.getElementById('contextMenu');
 
-// Click anywhere on search wrapper to focus input
 searchWrapper.addEventListener('click', () => {
   searchInput.focus();
 });
@@ -18,23 +17,19 @@ let searchTimeout = null;
 let contextMenuTarget = null;
 let contextMenuIndex = -1;
 
-// Focus input when window is shown
 ipcRenderer.on('window-shown', () => {
   searchInput.focus();
   searchInput.select();
 });
 
-// Clear on hide
 ipcRenderer.on('window-hidden', () => {
   hideContextMenu();
 });
 
-// Index ready notification
 ipcRenderer.on('index-ready', (event, count) => {
   console.log(`Index ready with ${count} files`);
 });
 
-// Search input handler with debounce
 searchInput.addEventListener('input', (e) => {
   const query = e.target.value;
 
@@ -60,7 +55,6 @@ searchInput.addEventListener('input', (e) => {
   }, 150);
 });
 
-// Keyboard navigation
 searchInput.addEventListener('keydown', (e) => {
   if (contextMenu.classList.contains('visible')) {
     handleContextMenuKeys(e);
@@ -161,7 +155,6 @@ function updateSelection() {
     item.classList.toggle('selected', index === selectedIndex);
   });
 
-  // Scroll selected item into view
   const selectedItem = items[selectedIndex];
   if (selectedItem) {
     selectedItem.scrollIntoView({ block: 'nearest' });
@@ -201,7 +194,6 @@ function renderResults(query) {
     `;
   }).join('');
 
-  // Add click and context menu handlers
   resultsList.querySelectorAll('.result-item').forEach((item) => {
     const index = parseInt(item.dataset.index);
 
@@ -229,7 +221,6 @@ function renderResults(query) {
 
   resultCount.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
 
-  // Apply current font size to new results
   ipcRenderer.invoke('get-settings').then(settings => {
     applyFontSize(settings.fontSize);
   });
@@ -281,7 +272,6 @@ function showError() {
   resultCount.textContent = 'Error';
 }
 
-// Context Menu
 function showContextMenu(x, y, item) {
   contextMenuTarget = item;
   contextMenuIndex = 0;
@@ -308,14 +298,12 @@ function hideContextMenu() {
   updateContextMenuSelection();
 }
 
-// Hide context menu when clicking elsewhere
 document.addEventListener('click', (e) => {
   if (!contextMenu.contains(e.target)) {
     hideContextMenu();
   }
 });
 
-// Context menu actions
 contextMenu.querySelectorAll('.context-menu-item').forEach((item) => {
   item.addEventListener('click', async () => {
     if (!contextMenuTarget) return;
@@ -365,7 +353,6 @@ async function openInExplorer(filePath) {
   }
 }
 
-// Settings Panel
 const settingsPanel = document.getElementById('settingsPanel');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsClose = document.getElementById('settingsClose');
@@ -374,8 +361,17 @@ const fontSizeSlider = document.getElementById('fontSizeSlider');
 const fontSizeValue = document.getElementById('fontSizeValue');
 const opacitySlider = document.getElementById('opacitySlider');
 const opacityValue = document.getElementById('opacityValue');
+const hotkeyInput = document.getElementById('hotkeyInput');
+const hotkeyDisplay = document.getElementById('hotkeyDisplay');
+const themeButtons = document.getElementById('themeButtons');
+const maxResultsSlider = document.getElementById('maxResultsSlider');
+const maxResultsValue = document.getElementById('maxResultsValue');
+const pathsList = document.getElementById('pathsList');
+const addPathBtn = document.getElementById('addPathBtn');
+const excludeTextarea = document.getElementById('excludeTextarea');
 
 let settingsOpen = false;
+let recordingHotkey = false;
 
 function openSettings() {
   settingsPanel.classList.add('visible');
@@ -395,24 +391,72 @@ settingsBtn.addEventListener('click', (e) => {
 
 settingsClose.addEventListener('click', closeSettings);
 
-// Load settings on init
 async function loadSettings() {
   const settings = await ipcRenderer.invoke('get-settings');
 
-  // Update position buttons
   positionGrid.querySelectorAll('.position-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.position === settings.position);
   });
 
-  // Update sliders
   fontSizeSlider.value = settings.fontSize;
   fontSizeValue.textContent = settings.fontSize;
   opacitySlider.value = settings.opacity;
   opacityValue.textContent = settings.opacity;
+  maxResultsSlider.value = settings.maxResults;
+  maxResultsValue.textContent = settings.maxResults;
 
-  // Apply font size
+  hotkeyDisplay.textContent = formatHotkey(settings.hotkey);
+
+  themeButtons.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === settings.theme);
+  });
+
+  renderPaths(settings.searchPaths || []);
+  excludeTextarea.value = (settings.excludePatterns || []).join('\n');
+
   document.documentElement.style.setProperty('--base-font-size', `${settings.fontSize}px`);
   applyFontSize(settings.fontSize);
+  applyTheme(settings.theme);
+}
+
+function formatHotkey(hotkey) {
+  return hotkey
+    .replace('Control', 'Ctrl')
+    .replace('Meta', 'Cmd')
+    .replace('+', ' + ');
+}
+
+function applyTheme(theme) {
+  document.documentElement.removeAttribute('data-theme');
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+}
+
+function renderPaths(paths) {
+  if (paths.length === 0) {
+    pathsList.innerHTML = '<div class="path-item"><span>Default: User home folder</span></div>';
+    return;
+  }
+
+  pathsList.innerHTML = paths.map((p, i) => `
+    <div class="path-item">
+      <span title="${p}">${p}</span>
+      <button class="path-remove" data-index="${i}">&times;</button>
+    </div>
+  `).join('');
+
+  pathsList.querySelectorAll('.path-remove').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const index = parseInt(btn.dataset.index);
+      const settings = await ipcRenderer.invoke('get-settings');
+      const newPaths = settings.searchPaths.filter((_, i) => i !== index);
+      await ipcRenderer.invoke('set-setting', 'searchPaths', newPaths);
+      renderPaths(newPaths);
+    });
+  });
 }
 
 function applyFontSize(size) {
@@ -425,7 +469,6 @@ function applyFontSize(size) {
   });
 }
 
-// Position buttons
 positionGrid.querySelectorAll('.position-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
     const position = btn.dataset.position;
@@ -436,7 +479,6 @@ positionGrid.querySelectorAll('.position-btn').forEach(btn => {
   });
 });
 
-// Font size slider
 fontSizeSlider.addEventListener('input', async (e) => {
   const size = parseInt(e.target.value);
   fontSizeValue.textContent = size;
@@ -444,14 +486,100 @@ fontSizeSlider.addEventListener('input', async (e) => {
   await ipcRenderer.invoke('set-setting', 'fontSize', size);
 });
 
-// Opacity slider
 opacitySlider.addEventListener('input', async (e) => {
   const opacity = parseInt(e.target.value);
   opacityValue.textContent = opacity;
   await ipcRenderer.invoke('set-setting', 'opacity', opacity);
 });
 
-// Close settings on Escape
+maxResultsSlider.addEventListener('input', async (e) => {
+  const maxResults = parseInt(e.target.value);
+  maxResultsValue.textContent = maxResults;
+  await ipcRenderer.invoke('set-setting', 'maxResults', maxResults);
+});
+
+hotkeyInput.addEventListener('click', () => {
+  recordingHotkey = true;
+  hotkeyInput.classList.add('recording');
+  hotkeyDisplay.textContent = 'Press keys...';
+});
+
+hotkeyInput.addEventListener('keydown', async (e) => {
+  if (!recordingHotkey) return;
+  e.preventDefault();
+
+  const parts = [];
+  if (e.ctrlKey) parts.push('Control');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  if (e.metaKey) parts.push('Meta');
+
+  const key = e.key;
+  if (!['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
+    parts.push(key.length === 1 ? key.toUpperCase() : key);
+
+    if (parts.length >= 2) {
+      const hotkey = parts.join('+');
+      const result = await ipcRenderer.invoke('set-setting', 'hotkey', hotkey);
+
+      if (result.success) {
+        hotkeyDisplay.textContent = formatHotkey(hotkey);
+      } else {
+        hotkeyDisplay.textContent = 'Failed - try another';
+        setTimeout(() => loadSettings(), 2000);
+      }
+
+      recordingHotkey = false;
+      hotkeyInput.classList.remove('recording');
+    }
+  }
+});
+
+hotkeyInput.addEventListener('blur', () => {
+  if (recordingHotkey) {
+    recordingHotkey = false;
+    hotkeyInput.classList.remove('recording');
+    loadSettings(); // Reset display
+  }
+});
+
+themeButtons.querySelectorAll('.theme-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const theme = btn.dataset.theme;
+    await ipcRenderer.invoke('set-setting', 'theme', theme);
+
+    themeButtons.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyTheme(theme);
+  });
+});
+
+addPathBtn.addEventListener('click', async () => {
+  const result = await ipcRenderer.invoke('select-folder');
+  if (result) {
+    const settings = await ipcRenderer.invoke('get-settings');
+    const newPaths = [...(settings.searchPaths || []), result];
+    await ipcRenderer.invoke('set-setting', 'searchPaths', newPaths);
+    renderPaths(newPaths);
+  }
+});
+
+let excludeTimeout = null;
+excludeTextarea.addEventListener('input', () => {
+  if (excludeTimeout) clearTimeout(excludeTimeout);
+  excludeTimeout = setTimeout(async () => {
+    const patterns = excludeTextarea.value
+      .split('\n')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+    await ipcRenderer.invoke('set-setting', 'excludePatterns', patterns);
+  }, 500);
+});
+
+ipcRenderer.on('theme-changed', (event, theme) => {
+  applyTheme(theme);
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && settingsOpen) {
     e.preventDefault();
@@ -460,11 +588,9 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Prevent settings panel clicks from closing window
 settingsPanel.addEventListener('click', (e) => {
   e.stopPropagation();
 });
 
-// Initialize
 loadSettings();
 showEmptyState();

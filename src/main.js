@@ -8,21 +8,42 @@ const defaultSettings = {
   position: 'center',
   fontSize: 14,
   opacity: 95,
+  hotkey: 'Control+Space',
+  searchPaths: [], // Empty means all drives
+  excludePatterns: ['node_modules', '.git', 'dist', 'build', '__pycache__', '.cache', 'AppData', '$Recycle.Bin', 'Windows'],
+  maxResults: 100,
+  theme: 'system', // system, light, dark
 };
 
-// Initialize store asynchronously
+let currentHotkey = null;
+
 async function initStore() {
   const Store = (await import('electron-store')).default;
   store = new Store({ defaults: defaultSettings });
 }
 
-// Helper to get setting with fallback
 function getSetting(key) {
   return store ? store.get(key) : defaultSettings[key];
 }
 
 function setSetting(key, value) {
   if (store) store.set(key, value);
+}
+
+function registerHotkey(hotkey) {
+  if (currentHotkey) {
+    globalShortcut.unregister(currentHotkey);
+  }
+
+  const success = globalShortcut.register(hotkey, () => {
+    toggleWindow();
+  });
+
+  if (success) {
+    currentHotkey = hotkey;
+    return true;
+  }
+  return false;
 }
 
 let mainWindow = null;
@@ -117,7 +138,6 @@ function showWindow() {
     const pos = getWindowPosition(activeDisplay, windowWidth, windowHeight);
     mainWindow.setPosition(pos.x, pos.y);
 
-    // Apply opacity
     mainWindow.setOpacity(getSetting('opacity') / 100);
 
     mainWindow.show();
@@ -184,11 +204,9 @@ app.whenReady().then(async () => {
   createWindow();
   createTray();
 
-  const ret = globalShortcut.register('Control+Space', () => {
-    toggleWindow();
-  });
+  registerHotkey(getSetting('hotkey'));
 
-  if (!ret) {
+  if (!currentHotkey) {
     console.error('Failed to register global shortcut');
   }
 
@@ -230,9 +248,10 @@ async function buildFileIndex() {
   isIndexing = true;
   fileIndex = [];
 
-  const searchPaths = [
-    process.env.USERPROFILE || process.env.HOME,
-  ];
+  const customPaths = getSetting('searchPaths');
+  const searchPaths = customPaths && customPaths.length > 0
+    ? customPaths
+    : [process.env.USERPROFILE || process.env.HOME];
 
   console.log('Starting file indexing...');
   const startTime = Date.now();
@@ -253,11 +272,14 @@ async function buildFileIndex() {
 async function indexDirectory(dirPath, depth, maxDepth) {
   if (depth > maxDepth) return;
 
+  const excludePatterns = getSetting('excludePatterns') || [];
+  const skipSet = new Set([...SKIP_DIRS, ...excludePatterns]);
+
   try {
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
 
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) {
+      if (entry.name.startsWith('.') || skipSet.has(entry.name)) {
         continue;
       }
 
@@ -331,7 +353,7 @@ ipcMain.handle('search-files', async (event, query) => {
   }
 
   const searchTerms = query.toLowerCase().trim().split(/\s+/).filter(t => t.length > 0);
-  const maxResults = 100;
+  const maxResults = getSetting('maxResults') || 100;
 
   if (indexReady && fileIndex.length > 0) {
     const scored = [];
@@ -436,7 +458,6 @@ ipcMain.handle('open-in-vscode', async (event, filePath) => {
   try {
     exec(`code "${filePath}"`, { shell: true }, (error) => {
       if (error) {
-        // Fallback to full path
         const vscodePath = path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe');
         exec(`"${vscodePath}" "${filePath}"`, { shell: true });
       }
@@ -484,14 +505,11 @@ ipcMain.handle('open-vscode-claude', async (event, filePath) => {
     const stats = await fs.promises.stat(filePath);
     const folderPath = stats.isDirectory() ? filePath : path.dirname(filePath);
 
-    // Open VS Code with the folder
     exec(`code "${folderPath}"`, { shell: true });
 
-    // Wait for VS Code to open, then open terminal and type claude
     setTimeout(() => {
       exec(`code -r --command workbench.action.terminal.new`, { shell: true });
 
-      // Wait for terminal to open, then send keystrokes
       setTimeout(() => {
         const psCommand = `powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('claude{ENTER}')"`;
         exec(psCommand, { shell: true });
@@ -504,25 +522,34 @@ ipcMain.handle('open-vscode-claude', async (event, filePath) => {
   }
 });
 
-// Settings IPC handlers
 ipcMain.handle('get-settings', () => {
   return {
     position: getSetting('position'),
     fontSize: getSetting('fontSize'),
     opacity: getSetting('opacity'),
+    hotkey: getSetting('hotkey'),
+    searchPaths: getSetting('searchPaths'),
+    excludePatterns: getSetting('excludePatterns'),
+    maxResults: getSetting('maxResults'),
+    theme: getSetting('theme'),
   };
 });
 
 ipcMain.handle('set-setting', (event, key, value) => {
+  if (key === 'hotkey') {
+    const success = registerHotkey(value);
+    if (!success) {
+      return { success: false, error: 'Failed to register hotkey. It may be in use by another application.' };
+    }
+  }
+
   setSetting(key, value);
 
   if (mainWindow) {
-    // Apply opacity immediately if changed
     if (key === 'opacity') {
       mainWindow.setOpacity(value / 100);
     }
 
-    // Apply position immediately if changed
     if (key === 'position') {
       const cursor = screen.getCursorScreenPoint();
       const activeDisplay = screen.getDisplayNearestPoint(cursor);
@@ -531,9 +558,29 @@ ipcMain.handle('set-setting', (event, key, value) => {
       const pos = getWindowPosition(activeDisplay, windowWidth, windowHeight);
       mainWindow.setBounds({ x: pos.x, y: pos.y, width: windowWidth, height: windowHeight });
     }
+
+    if (key === 'theme') {
+      mainWindow.webContents.send('theme-changed', value);
+    }
+
+    if (key === 'searchPaths' || key === 'excludePatterns') {
+      buildFileIndex();
+    }
   }
 
   return { success: true };
+});
+
+ipcMain.handle('select-folder', async () => {
+  const { dialog } = require('electron');
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0];
+  }
+  return null;
 });
 
 ipcMain.on('hide-window', () => {

@@ -69,6 +69,34 @@
         <label class="setting-label">Opacity: <span id="opacityValue">95</span>%</label>
         <input type="range" class="setting-slider" id="opacitySlider" min="50" max="100" value="95">
       </div>
+      <div class="setting-group">
+        <label class="setting-label">Hotkey</label>
+        <div class="hotkey-input" id="hotkeyInput" tabindex="0">
+          <span id="hotkeyDisplay">Ctrl + Space</span>
+          <span class="hotkey-hint">Click to change</span>
+        </div>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Theme</label>
+        <div class="theme-buttons" id="themeButtons">
+          <button class="theme-btn" data-theme="system">System</button>
+          <button class="theme-btn" data-theme="light">Light</button>
+          <button class="theme-btn" data-theme="dark">Dark</button>
+        </div>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Max Results: <span id="maxResultsValue">100</span></label>
+        <input type="range" class="setting-slider" id="maxResultsSlider" min="25" max="200" step="25" value="100">
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Search Paths</label>
+        <div class="paths-list" id="pathsList"></div>
+        <button class="add-path-btn" id="addPathBtn">+ Add Path</button>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Exclude Patterns</label>
+        <textarea class="exclude-textarea" id="excludeTextarea" placeholder="One pattern per line, e.g.&#10;node_modules&#10;.git&#10;dist"></textarea>
+      </div>
     </div>
   </div>
 
