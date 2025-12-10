@@ -2,7 +2,7 @@
   "name": "searchmate",
   "version": "1.0.2",
   "description": "A fast file search bar app like Everything",
-  "main": "src/main.js",
+  "main": "src/main/index.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
