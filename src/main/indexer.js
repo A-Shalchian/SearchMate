@@ -3,13 +3,39 @@ const path = require('path');
 const { SKIP_DIRS, SKIP_EXTENSIONS, INDEX_CONFIG } = require('../shared/constants');
 const { getSetting } = require('./settings');
 const { getMatchScore } = require('./search');
+const db = require('./database');
 
 let fileIndex = [];
 let isIndexing = false;
 let indexReady = false;
 
-async function buildFileIndex(onComplete) {
+function loadIndexFromDatabase() {
+  const count = db.getFileCount();
+  if (count > 0) {
+    console.log(`Loading ${count} files from database...`);
+    fileIndex = db.getAllFiles();
+    indexReady = true;
+    console.log(`Loaded ${fileIndex.length} files from database`);
+    return true;
+  }
+  return false;
+}
+
+async function buildFileIndex(onComplete, forceRebuild = false) {
   if (isIndexing) return;
+
+  if (!forceRebuild && loadIndexFromDatabase()) {
+    if (onComplete) {
+      onComplete(fileIndex.length);
+    }
+    backgroundRefresh(onComplete);
+    return;
+  }
+
+  await fullIndex(onComplete);
+}
+
+async function fullIndex(onComplete) {
   isIndexing = true;
   fileIndex = [];
 
@@ -18,12 +44,25 @@ async function buildFileIndex(onComplete) {
     ? customPaths
     : [process.env.USERPROFILE || process.env.HOME];
 
-  console.log('Starting file indexing...');
+  console.log('Starting full file indexing...');
   const startTime = Date.now();
 
+  db.clearAllFiles();
+
+  let batch = [];
+  const BATCH_SIZE = 1000;
+
   for (const basePath of searchPaths) {
-    await indexDirectory(basePath, 0, INDEX_CONFIG.maxDepth);
+    await indexDirectory(basePath, 0, INDEX_CONFIG.maxDepth, batch, BATCH_SIZE);
   }
+
+  if (batch.length > 0) {
+    db.insertFiles(batch);
+    fileIndex.push(...batch);
+  }
+
+  db.setMetadata('lastIndexed', Date.now());
+  db.setMetadata('searchPaths', searchPaths);
 
   isIndexing = false;
   indexReady = true;
@@ -34,7 +73,22 @@ async function buildFileIndex(onComplete) {
   }
 }
 
-async function indexDirectory(dirPath, depth, maxDepth) {
+async function backgroundRefresh(onComplete) {
+  const lastIndexed = db.getMetadata('lastIndexed');
+  const hoursSinceIndex = lastIndexed ? (Date.now() - lastIndexed) / (1000 * 60 * 60) : Infinity;
+
+  if (hoursSinceIndex < 1) {
+    console.log('Index is fresh, skipping background refresh');
+    return;
+  }
+
+  console.log('Starting background refresh...');
+  setTimeout(async () => {
+    await fullIndex(onComplete);
+  }, 5000);
+}
+
+async function indexDirectory(dirPath, depth, maxDepth, batch, batchSize) {
   if (depth > maxDepth) return;
 
   const excludePatterns = getSetting('excludePatterns') || [];
@@ -56,15 +110,23 @@ async function indexDirectory(dirPath, depth, maxDepth) {
       const fullPath = path.join(dirPath, entry.name);
       const isDir = entry.isDirectory();
 
-      fileIndex.push({
+      const file = {
         name: entry.name,
         nameLower: entry.name.toLowerCase(),
         path: fullPath,
         isDirectory: isDir,
-      });
+      };
+
+      batch.push(file);
+
+      if (batch.length >= batchSize) {
+        db.insertFiles(batch);
+        fileIndex.push(...batch);
+        batch.length = 0;
+      }
 
       if (isDir && depth < maxDepth) {
-        await indexDirectory(fullPath, depth + 1, maxDepth);
+        await indexDirectory(fullPath, depth + 1, maxDepth, batch, batchSize);
       }
     }
   } catch (err) {}
@@ -118,6 +180,10 @@ function resetIndex() {
   indexReady = false;
 }
 
+function rebuildIndex(onComplete) {
+  return buildFileIndex(onComplete, true);
+}
+
 module.exports = {
   buildFileIndex,
   searchDirectoryLive,
@@ -125,4 +191,6 @@ module.exports = {
   getIndexStatus,
   isIndexReady,
   resetIndex,
+  rebuildIndex,
+  loadIndexFromDatabase,
 };

@@ -7,9 +7,12 @@ const { buildFileIndex } = require('./indexer');
 const { setupIpcHandlers } = require('./ipc-handlers');
 const { toggleWindow, getMainWindow } = require('./window');
 const { IPC_CHANNELS } = require('../shared/constants');
+const { initDatabase, closeDatabase } = require('./database');
 
 app.whenReady().then(async () => {
   await initStore();
+
+  initDatabase();
 
   setupIpcHandlers();
 
@@ -28,6 +31,7 @@ app.whenReady().then(async () => {
 
 app.on('will-quit', () => {
   unregisterAll();
+  closeDatabase();
 });
 
 app.on('window-all-closed', (e) => {

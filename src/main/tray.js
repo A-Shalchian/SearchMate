@@ -2,7 +2,7 @@ const { app, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { showWindow, toggleWindow } = require('./window');
-const { buildFileIndex, resetIndex } = require('./indexer');
+const { rebuildIndex } = require('./indexer');
 
 let tray = null;
 
@@ -27,10 +27,7 @@ function createTray() {
     },
     {
       label: 'Rebuild Index',
-      click: () => {
-        resetIndex();
-        buildFileIndex();
-      }
+      click: () => rebuildIndex()
     },
     { type: 'separator' },
     {
