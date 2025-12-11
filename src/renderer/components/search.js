@@ -105,13 +105,13 @@ function handleKeydown(e) {
 
 function selectNext() {
   if (results.length === 0) return;
-  selectedIndex = Math.min(selectedIndex + 1, results.length - 1);
+  selectedIndex = (selectedIndex + 1) % results.length;
   updateSelection();
 }
 
 function selectPrev() {
   if (results.length === 0) return;
-  selectedIndex = Math.max(selectedIndex - 1, 0);
+  selectedIndex = (selectedIndex - 1 + results.length) % results.length;
   updateSelection();
 }
 
