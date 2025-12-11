@@ -14,19 +14,25 @@ function setupIpcHandlers() {
     }
 
     const maxResults = getSetting('maxResults') || 100;
+    const showOnlyDirectories = getSetting('showOnlyDirectories') || false;
     const fileIndex = getFileIndex();
 
+    let results;
     if (isIndexReady() && fileIndex.length > 0) {
-      return searchIndex(fileIndex, query, maxResults);
+      results = searchIndex(fileIndex, query, maxResults * 2);
+    } else {
+      results = [];
+      const searchPaths = [process.env.USERPROFILE || process.env.HOME];
+      const searchTerms = parseSearchQuery(query);
+
+      for (const basePath of searchPaths) {
+        if (results.length >= maxResults * 2) break;
+        await searchDirectoryLive(basePath, searchTerms, results, maxResults * 2, 0, INDEX_CONFIG.liveSearchMaxDepth);
+      }
     }
 
-    const results = [];
-    const searchPaths = [process.env.USERPROFILE || process.env.HOME];
-    const searchTerms = parseSearchQuery(query);
-
-    for (const basePath of searchPaths) {
-      if (results.length >= maxResults) break;
-      await searchDirectoryLive(basePath, searchTerms, results, maxResults, 0, INDEX_CONFIG.liveSearchMaxDepth);
+    if (showOnlyDirectories) {
+      results = results.filter(item => item.isDirectory);
     }
 
     return results.slice(0, maxResults);

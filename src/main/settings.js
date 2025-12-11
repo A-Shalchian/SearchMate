@@ -25,6 +25,7 @@ function getAllSettings() {
     excludePatterns: getSetting('excludePatterns'),
     maxResults: getSetting('maxResults'),
     theme: getSetting('theme'),
+    showOnlyDirectories: getSetting('showOnlyDirectories'),
   };
 }
 

@@ -18,6 +18,7 @@ let pathsList = null;
 let addPathBtn = null;
 let excludeTextarea = null;
 let searchInput = null;
+let showOnlyDirectoriesToggle = null;
 
 let settingsOpen = false;
 let recordingHotkey = false;
@@ -41,6 +42,7 @@ function init(elements) {
   addPathBtn = elements.addPathBtn;
   excludeTextarea = elements.excludeTextarea;
   searchInput = elements.searchInput;
+  showOnlyDirectoriesToggle = elements.showOnlyDirectoriesToggle;
 
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -59,6 +61,7 @@ function init(elements) {
   setupThemeButtons();
   setupPathsUI();
   setupExcludeTextarea();
+  setupDirectoriesToggle();
   setupKeyboardShortcuts();
 
   ipcRenderer.on('theme-changed', (event, theme) => {
@@ -105,6 +108,7 @@ async function load() {
 
   renderPaths(settings.searchPaths || []);
   excludeTextarea.value = (settings.excludePatterns || []).join('\n');
+  showOnlyDirectoriesToggle.checked = settings.showOnlyDirectories || false;
 
   applyFontSize(settings.fontSize);
   applyTheme(settings.theme);
@@ -256,6 +260,12 @@ function setupExcludeTextarea() {
         .filter(p => p.length > 0);
       await ipcRenderer.invoke('set-setting', 'excludePatterns', patterns);
     }, 500);
+  });
+}
+
+function setupDirectoriesToggle() {
+  showOnlyDirectoriesToggle.addEventListener('change', async () => {
+    await ipcRenderer.invoke('set-setting', 'showOnlyDirectories', showOnlyDirectoriesToggle.checked);
   });
 }
 

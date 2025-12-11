@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     pathsList: document.getElementById('pathsList'),
     addPathBtn: document.getElementById('addPathBtn'),
     excludeTextarea: document.getElementById('excludeTextarea'),
+    showOnlyDirectoriesToggle: document.getElementById('showOnlyDirectoriesToggle'),
   };
 
   contextMenu.init(elements.contextMenu);

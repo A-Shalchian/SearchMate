@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   excludePatterns: ['node_modules', '.git', 'dist', 'build', '__pycache__', '.cache', 'AppData', '$Recycle.Bin', 'Windows'],
   maxResults: 100,
   theme: 'system',
+  showOnlyDirectories: false,
 };
 
 const WINDOW_CONFIG = {
