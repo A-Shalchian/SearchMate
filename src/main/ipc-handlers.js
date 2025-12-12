@@ -1,7 +1,7 @@
 const { ipcMain, dialog } = require('electron');
 const { IPC_CHANNELS, INDEX_CONFIG } = require('../shared/constants');
 const { getSetting, setSetting, getAllSettings } = require('./settings');
-const { getFileIndex, getIndexStatus, buildFileIndex, searchDirectoryLive, isIndexReady, resetIndex } = require('./indexer');
+const { getFileIndex, getIndexStatus, buildFileIndex, searchDirectoryLive, isIndexReady, resetIndex, startWatcher } = require('./indexer');
 const { searchIndex, parseSearchQuery } = require('./search');
 const { openPath, openInExplorer, openFolder, openInVscode, openInTerminal, openTerminalClaude, openVscodeClaude } = require('./file-actions');
 const { hideWindow, getMainWindow, updateWindowPosition, updateWindowOpacity } = require('./window');
@@ -109,7 +109,9 @@ function setupIpcHandlers() {
       }
 
       if (key === 'searchPaths' || key === 'excludePatterns') {
-        buildFileIndex();
+        buildFileIndex(() => {
+          startWatcher();
+        });
       }
     }
 

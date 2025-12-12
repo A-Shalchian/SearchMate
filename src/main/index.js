@@ -3,7 +3,7 @@ const { initStore, getSetting } = require('./settings');
 const { createWindow } = require('./window');
 const { createTray } = require('./tray');
 const { registerHotkey, unregisterAll } = require('./hotkey');
-const { buildFileIndex } = require('./indexer');
+const { buildFileIndex, startWatcher, stopWatcher } = require('./indexer');
 const { setupIpcHandlers } = require('./ipc-handlers');
 const { toggleWindow, getMainWindow } = require('./window');
 const { IPC_CHANNELS } = require('../shared/constants');
@@ -26,11 +26,13 @@ app.whenReady().then(async () => {
     if (win) {
       win.webContents.send(IPC_CHANNELS.INDEX_READY, count);
     }
+    startWatcher();
   });
 });
 
 app.on('will-quit', () => {
   unregisterAll();
+  stopWatcher();
   closeDatabase();
 });
 

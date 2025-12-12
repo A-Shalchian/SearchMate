@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const chokidar = require('chokidar');
 const { SKIP_DIRS, SKIP_EXTENSIONS, INDEX_CONFIG } = require('../shared/constants');
 const { getSetting } = require('./settings');
 const { getMatchScore } = require('./search');
@@ -8,6 +9,7 @@ const db = require('./database');
 let fileIndex = [];
 let isIndexing = false;
 let indexReady = false;
+let watcher = null;
 
 function loadIndexFromDatabase() {
   const count = db.getFileCount();
@@ -184,6 +186,103 @@ function rebuildIndex(onComplete) {
   return buildFileIndex(onComplete, true);
 }
 
+function shouldIgnore(filePath) {
+  const excludePatterns = getSetting('excludePatterns') || [];
+  const skipSet = new Set([...SKIP_DIRS, ...excludePatterns]);
+
+  const parts = filePath.split(path.sep);
+  for (const part of parts) {
+    if (part.startsWith('.') || skipSet.has(part)) {
+      return true;
+    }
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  if (SKIP_EXTENSIONS.has(ext)) {
+    return true;
+  }
+
+  return false;
+}
+
+function startWatcher() {
+  if (watcher) {
+    watcher.close();
+  }
+
+  const customPaths = getSetting('searchPaths');
+  const watchPaths = customPaths && customPaths.length > 0
+    ? customPaths
+    : [process.env.USERPROFILE || process.env.HOME];
+
+  const excludePatterns = getSetting('excludePatterns') || [];
+  const ignored = [...SKIP_DIRS, ...excludePatterns].map(p => `**/${p}/**`);
+
+  console.log('Starting file watcher on:', watchPaths);
+
+  watcher = chokidar.watch(watchPaths, {
+    ignored: [/(^|[\/\\])\../, ...ignored],
+    persistent: true,
+    ignoreInitial: true,
+    depth: INDEX_CONFIG.maxDepth,
+    awaitWriteFinish: {
+      stabilityThreshold: 300,
+      pollInterval: 100
+    }
+  });
+
+  watcher
+    .on('add', (filePath) => {
+      if (shouldIgnore(filePath)) return;
+
+      const file = {
+        name: path.basename(filePath),
+        nameLower: path.basename(filePath).toLowerCase(),
+        path: filePath,
+        isDirectory: false,
+      };
+
+      db.insertFile(file);
+      fileIndex.push(file);
+      console.log('File added:', filePath);
+    })
+    .on('addDir', (dirPath) => {
+      if (shouldIgnore(dirPath)) return;
+
+      const file = {
+        name: path.basename(dirPath),
+        nameLower: path.basename(dirPath).toLowerCase(),
+        path: dirPath,
+        isDirectory: true,
+      };
+
+      db.insertFile(file);
+      fileIndex.push(file);
+      console.log('Directory added:', dirPath);
+    })
+    .on('unlink', (filePath) => {
+      db.deleteFile(filePath);
+      fileIndex = fileIndex.filter(f => f.path !== filePath);
+      console.log('File removed:', filePath);
+    })
+    .on('unlinkDir', (dirPath) => {
+      db.deleteFilesByPathPrefix(dirPath);
+      fileIndex = fileIndex.filter(f => !f.path.startsWith(dirPath));
+      console.log('Directory removed:', dirPath);
+    })
+    .on('error', (error) => {
+      console.error('Watcher error:', error);
+    });
+}
+
+function stopWatcher() {
+  if (watcher) {
+    watcher.close();
+    watcher = null;
+    console.log('File watcher stopped');
+  }
+}
+
 module.exports = {
   buildFileIndex,
   searchDirectoryLive,
@@ -193,4 +292,6 @@ module.exports = {
   resetIndex,
   rebuildIndex,
   loadIndexFromDatabase,
+  startWatcher,
+  stopWatcher,
 };
