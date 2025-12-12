@@ -260,9 +260,24 @@ function getSelectedIndex() {
   return selectedIndex;
 }
 
+function refreshSearch() {
+  const query = searchInput.value;
+  if (!query.trim()) return;
+
+  (async () => {
+    try {
+      results = await ipcRenderer.invoke('search-files', query);
+      renderResults(query);
+    } catch (err) {
+      console.error('Search error:', err);
+    }
+  })();
+}
+
 module.exports = {
   init,
   showEmptyState,
   getResults,
   getSelectedIndex,
+  refreshSearch,
 };

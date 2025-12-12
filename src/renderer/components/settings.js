@@ -1,5 +1,6 @@
 const { ipcRenderer } = require('electron');
 const { applyTheme, applyFontSize } = require('./theme');
+const search = require('./search');
 
 let settingsPanel = null;
 let settingsBtn = null;
@@ -63,6 +64,7 @@ function init(elements) {
   setupExcludeTextarea();
   setupDirectoriesToggle();
   setupKeyboardShortcuts();
+  setupClickOutside();
 
   ipcRenderer.on('theme-changed', (event, theme) => {
     applyTheme(theme);
@@ -175,6 +177,7 @@ function setupSliders() {
     const maxResults = parseInt(e.target.value);
     maxResultsValue.textContent = maxResults;
     await ipcRenderer.invoke('set-setting', 'maxResults', maxResults);
+    search.refreshSearch();
   });
 }
 
@@ -266,6 +269,7 @@ function setupExcludeTextarea() {
 function setupDirectoriesToggle() {
   showOnlyDirectoriesToggle.addEventListener('change', async () => {
     await ipcRenderer.invoke('set-setting', 'showOnlyDirectories', showOnlyDirectoriesToggle.checked);
+    search.refreshSearch();
   });
 }
 
@@ -274,6 +278,14 @@ function setupKeyboardShortcuts() {
     if (e.key === 'Escape' && settingsOpen) {
       e.preventDefault();
       e.stopPropagation();
+      close();
+    }
+  });
+}
+
+function setupClickOutside() {
+  document.addEventListener('click', (e) => {
+    if (settingsOpen && !settingsPanel.contains(e.target) && e.target !== settingsBtn) {
       close();
     }
   });
