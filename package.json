@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.5.0",
+    "chokidar": "^3.6.0",
     "electron-store": "^10.1.0"
   },
   "build": {
