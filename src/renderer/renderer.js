@@ -1,6 +1,7 @@
 const search = require('./components/search');
 const settings = require('./components/settings');
 const contextMenu = require('./components/context-menu');
+const preview = require('./components/preview');
 
 document.addEventListener('DOMContentLoaded', () => {
   const elements = {
@@ -27,9 +28,14 @@ document.addEventListener('DOMContentLoaded', () => {
     addPathBtn: document.getElementById('addPathBtn'),
     excludeTextarea: document.getElementById('excludeTextarea'),
     showOnlyDirectoriesToggle: document.getElementById('showOnlyDirectoriesToggle'),
+    previewPanel: document.getElementById('previewPanel'),
+    previewTitle: document.getElementById('previewTitle'),
+    previewContent: document.getElementById('previewContent'),
+    previewClose: document.getElementById('previewClose'),
   };
 
   contextMenu.init(elements.contextMenu);
+  preview.init(elements);
   search.init(elements);
   settings.init(elements);
 });

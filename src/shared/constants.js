@@ -51,6 +51,7 @@ const IPC_CHANNELS = {
   GET_SETTINGS: 'get-settings',
   SET_SETTING: 'set-setting',
   SELECT_FOLDER: 'select-folder',
+  GET_FILE_PREVIEW: 'get-file-preview',
 
   HIDE_WINDOW: 'hide-window',
   WINDOW_SHOWN: 'window-shown',

@@ -1,5 +1,6 @@
 const { ipcRenderer } = require('electron');
 const contextMenu = require('./context-menu');
+const preview = require('./preview');
 const { applyFontSize } = require('./theme');
 
 let searchInput = null;
@@ -22,7 +23,7 @@ function init(elements) {
   });
 
   searchInput.addEventListener('input', handleInput);
-  searchInput.addEventListener('keydown', handleKeydown);
+  document.addEventListener('keydown', handleKeydown);
 
   ipcRenderer.on('window-shown', () => {
     searchInput.focus();
@@ -75,10 +76,12 @@ function handleKeydown(e) {
     case 'ArrowDown':
       e.preventDefault();
       selectNext();
+      updatePreviewIfVisible();
       break;
     case 'ArrowUp':
       e.preventDefault();
       selectPrev();
+      updatePreviewIfVisible();
       break;
     case 'Enter':
       e.preventDefault();
@@ -98,21 +101,36 @@ function handleKeydown(e) {
       break;
     case 'Escape':
       e.preventDefault();
-      ipcRenderer.send('hide-window');
+      if (preview.isPreviewVisible()) {
+        preview.hide();
+      } else {
+        ipcRenderer.send('hide-window');
+      }
       break;
+  }
+}
+
+function updatePreviewIfVisible() {
+  if (preview.isPreviewVisible() && selectedIndex >= 0 && selectedIndex < results.length) {
+    const item = results[selectedIndex];
+    preview.loadPreview(item.path, item.name, item.isDirectory);
   }
 }
 
 function selectNext() {
   if (results.length === 0) return;
-  selectedIndex = (selectedIndex + 1) % results.length;
-  updateSelection();
+  if (selectedIndex < results.length - 1) {
+    selectedIndex++;
+    updateSelection();
+  }
 }
 
 function selectPrev() {
   if (results.length === 0) return;
-  selectedIndex = (selectedIndex - 1 + results.length) % results.length;
-  updateSelection();
+  if (selectedIndex > 0) {
+    selectedIndex--;
+    updateSelection();
+  }
 }
 
 function updateSelection() {

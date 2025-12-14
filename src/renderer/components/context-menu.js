@@ -1,4 +1,5 @@
 const { ipcRenderer } = require('electron');
+const preview = require('./preview');
 
 let contextMenuTarget = null;
 let contextMenuIndex = -1;
@@ -41,6 +42,10 @@ function init(menuElement) {
           break;
         case 'copy-path':
           await navigator.clipboard.writeText(filePath);
+          break;
+        case 'preview':
+          preview.show();
+          preview.loadPreview(filePath, contextMenuTarget.name, contextMenuTarget.isDirectory);
           break;
       }
 
@@ -120,7 +125,7 @@ function handleKeydown(e) {
   }
 
   const keyNum = parseInt(e.key);
-  if (keyNum >= 1 && keyNum <= 6) {
+  if (keyNum >= 1 && keyNum <= 7) {
     e.preventDefault();
     const menuItem = contextMenu.querySelector(`[data-key="${keyNum}"]`);
     if (menuItem) {

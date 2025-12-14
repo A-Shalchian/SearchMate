@@ -1,4 +1,6 @@
 const { ipcMain, dialog } = require('electron');
+const fs = require('fs');
+const path = require('path');
 const { IPC_CHANNELS, INDEX_CONFIG } = require('../shared/constants');
 const { getSetting, setSetting, getAllSettings } = require('./settings');
 const { getFileIndex, getIndexStatus, buildFileIndex, searchDirectoryLive, isIndexReady, resetIndex, startWatcher } = require('./indexer');
@@ -132,6 +134,58 @@ function setupIpcHandlers() {
 
   ipcMain.on(IPC_CHANNELS.HIDE_WINDOW, () => {
     hideWindow();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_FILE_PREVIEW, async (event, filePath, isDirectory) => {
+    try {
+      if (isDirectory) {
+        const entries = await fs.promises.readdir(filePath, { withFileTypes: true });
+        const contents = entries.slice(0, 20).map(entry => ({
+          name: entry.name,
+          isDirectory: entry.isDirectory()
+        }));
+        return { type: 'folder', contents };
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      const textExtensions = new Set([
+        '.txt', '.md', '.json', '.js', '.ts', '.jsx', '.tsx', '.css', '.scss', '.less',
+        '.html', '.htm', '.xml', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf',
+        '.py', '.rb', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.cs', '.go',
+        '.rs', '.swift', '.kt', '.scala', '.sh', '.bash', '.zsh', '.ps1', '.bat', '.cmd',
+        '.sql', '.graphql', '.vue', '.svelte', '.astro', '.env', '.gitignore', '.editorconfig',
+        '.prettierrc', '.eslintrc', '.babelrc', '.log'
+      ]);
+
+      const imageExtensions = new Set([
+        '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico'
+      ]);
+
+      if (textExtensions.has(ext)) {
+        const content = await fs.promises.readFile(filePath, 'utf-8');
+        const lines = content.split('\n').slice(0, 50).join('\n');
+        const truncated = lines.length < content.length ? lines + '\n...' : lines;
+        return { type: 'text', content: truncated };
+      }
+
+      if (imageExtensions.has(ext)) {
+        return { type: 'image' };
+      }
+
+      // Fallback to metadata
+      const stats = await fs.promises.stat(filePath);
+      return {
+        type: 'meta',
+        meta: {
+          size: stats.size,
+          created: stats.birthtime,
+          modified: stats.mtime,
+          extension: ext || 'Unknown'
+        }
+      };
+    } catch (err) {
+      return { type: 'error', message: 'Cannot preview this file' };
+    }
   });
 }
 

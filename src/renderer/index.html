@@ -106,6 +106,14 @@
     </div>
   </div>
 
+  <div class="preview-panel" id="previewPanel">
+    <div class="preview-header">
+      <span class="preview-title" id="previewTitle">Preview</span>
+      <button class="preview-close" id="previewClose">&times;</button>
+    </div>
+    <div class="preview-content" id="previewContent"></div>
+  </div>
+
   <div class="context-menu" id="contextMenu">
     <div class="context-menu-item" data-action="open" data-key="1">
       <span class="context-menu-key">1</span>
@@ -154,6 +162,15 @@
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
       </svg>
       <span>Copy Path</span>
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" data-action="preview" data-key="7">
+      <span class="context-menu-key">7</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+      <span>Preview</span>
     </div>
   </div>
 
