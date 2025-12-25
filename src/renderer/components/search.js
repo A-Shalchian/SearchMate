@@ -1,4 +1,3 @@
-const { ipcRenderer } = require('electron');
 const contextMenu = require('./context-menu');
 const preview = require('./preview');
 const { applyFontSize } = require('./theme');
@@ -25,16 +24,16 @@ function init(elements) {
   searchInput.addEventListener('input', handleInput);
   document.addEventListener('keydown', handleKeydown);
 
-  ipcRenderer.on('window-shown', () => {
+  window.api.on('window-shown', () => {
     searchInput.focus();
     searchInput.select();
   });
 
-  ipcRenderer.on('window-hidden', () => {
+  window.api.on('window-hidden', () => {
     contextMenu.hide();
   });
 
-  ipcRenderer.on('index-ready', (event, count) => {
+  window.api.on('index-ready', (count) => {
     console.log(`Index ready with ${count} files`);
   });
 
@@ -57,7 +56,7 @@ function handleInput(e) {
 
   searchTimeout = setTimeout(async () => {
     try {
-      results = await ipcRenderer.invoke('search-files', query);
+      results = await window.api.invoke('search-files', query);
       renderResults(query);
     } catch (err) {
       console.error('Search error:', err);
@@ -104,7 +103,7 @@ function handleKeydown(e) {
       if (preview.isPreviewVisible()) {
         preview.hide();
       } else {
-        ipcRenderer.send('hide-window');
+        window.api.send('hide-window');
       }
       break;
   }
@@ -205,7 +204,7 @@ function renderResults(query) {
 
   resultCount.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
 
-  ipcRenderer.invoke('get-settings').then(settings => {
+  window.api.invoke('get-settings').then(settings => {
     applyFontSize(settings.fontSize);
   });
 }
@@ -257,16 +256,16 @@ function showError() {
 }
 
 async function openPath(filePath) {
-  const result = await ipcRenderer.invoke('open-path', filePath);
+  const result = await window.api.invoke('open-path', filePath);
   if (result.success) {
-    ipcRenderer.send('hide-window');
+    window.api.send('hide-window');
   }
 }
 
 async function openInExplorer(filePath) {
-  const result = await ipcRenderer.invoke('open-in-explorer', filePath);
+  const result = await window.api.invoke('open-in-explorer', filePath);
   if (result.success) {
-    ipcRenderer.send('hide-window');
+    window.api.send('hide-window');
   }
 }
 
@@ -284,7 +283,7 @@ function refreshSearch() {
 
   (async () => {
     try {
-      results = await ipcRenderer.invoke('search-files', query);
+      results = await window.api.invoke('search-files', query);
       renderResults(query);
     } catch (err) {
       console.error('Search error:', err);

@@ -1,4 +1,3 @@
-const { ipcRenderer } = require('electron');
 const preview = require('./preview');
 
 let contextMenuTarget = null;
@@ -17,27 +16,27 @@ function init(menuElement) {
 
       switch (action) {
         case 'open':
-          const result = await ipcRenderer.invoke('open-path', filePath);
+          const result = await window.api.invoke('open-path', filePath);
           if (result.success) {
-            ipcRenderer.send('hide-window');
+            window.api.send('hide-window');
           }
           break;
         case 'open-vscode':
-          await ipcRenderer.invoke('open-in-vscode', filePath);
-          ipcRenderer.send('hide-window');
+          await window.api.invoke('open-in-vscode', filePath);
+          window.api.send('hide-window');
           break;
         case 'open-terminal':
-          await ipcRenderer.invoke('open-in-terminal', filePath);
-          ipcRenderer.send('hide-window');
+          await window.api.invoke('open-in-terminal', filePath);
+          window.api.send('hide-window');
           break;
         case 'open-terminal-claude':
-          await ipcRenderer.invoke('open-terminal-claude', filePath);
-          ipcRenderer.send('hide-window');
+          await window.api.invoke('open-terminal-claude', filePath);
+          window.api.send('hide-window');
           break;
         case 'show-in-explorer':
-          const explorerResult = await ipcRenderer.invoke('open-in-explorer', filePath);
+          const explorerResult = await window.api.invoke('open-in-explorer', filePath);
           if (explorerResult.success) {
-            ipcRenderer.send('hide-window');
+            window.api.send('hide-window');
           }
           break;
         case 'copy-path':

@@ -4,11 +4,13 @@
   "description": "A fast file search bar app like Everything",
   "main": "src/main/index.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
-    "build": "electron-builder",
-    "build:portable": "electron-builder --win portable",
-    "build:installer": "electron-builder --win nsis",
+    "start": "npm run bundle && electron .",
+    "dev": "npm run bundle && electron .",
+    "bundle": "esbuild src/renderer/renderer.js --bundle --outfile=src/renderer/renderer.bundle.js --platform=browser --format=iife",
+    "bundle:watch": "esbuild src/renderer/renderer.js --bundle --outfile=src/renderer/renderer.bundle.js --platform=browser --format=iife --watch",
+    "build": "npm run bundle && electron-builder",
+    "build:portable": "npm run bundle && electron-builder --win portable",
+    "build:installer": "npm run bundle && electron-builder --win nsis",
     "version:patch": "npm version patch --no-git-tag-version --force",
     "version:minor": "npm version minor --no-git-tag-version --force",
     "version:major": "npm version major --no-git-tag-version --force"
@@ -23,7 +25,8 @@
   "devDependencies": {
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
-    "electron-rebuild": "^3.2.9"
+    "electron-rebuild": "^3.2.9",
+    "esbuild": "^0.27.2"
   },
   "dependencies": {
     "better-sqlite3": "^12.5.0",

@@ -1,5 +1,3 @@
-const { ipcRenderer } = require('electron');
-
 let previewPanel = null;
 let previewTitle = null;
 let previewContent = null;
@@ -73,7 +71,7 @@ async function loadPreview(filePath, fileName, isDirectory) {
   previewContent.innerHTML = '<div class="preview-empty">Loading...</div>';
 
   try {
-    const data = await ipcRenderer.invoke('get-file-preview', filePath, isDirectory);
+    const data = await window.api.invoke('get-file-preview', filePath, isDirectory);
 
     if (currentPath !== filePath) return; // Path changed while loading
 

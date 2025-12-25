@@ -1,4 +1,3 @@
-const { ipcRenderer } = require('electron');
 const { applyTheme, applyFontSize } = require('./theme');
 const search = require('./search');
 
@@ -66,7 +65,7 @@ function init(elements) {
   setupKeyboardShortcuts();
   setupClickOutside();
 
-  ipcRenderer.on('theme-changed', (event, theme) => {
+  window.api.on('theme-changed', (theme) => {
     applyTheme(theme);
   });
 
@@ -89,7 +88,7 @@ function isOpen() {
 }
 
 async function load() {
-  const settings = await ipcRenderer.invoke('get-settings');
+  const settings = await window.api.invoke('get-settings');
 
   positionGrid.querySelectorAll('.position-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.position === settings.position);
@@ -139,9 +138,9 @@ function renderPaths(paths) {
   pathsList.querySelectorAll('.path-remove').forEach(btn => {
     btn.addEventListener('click', async () => {
       const index = parseInt(btn.dataset.index);
-      const settings = await ipcRenderer.invoke('get-settings');
+      const settings = await window.api.invoke('get-settings');
       const newPaths = settings.searchPaths.filter((_, i) => i !== index);
-      await ipcRenderer.invoke('set-setting', 'searchPaths', newPaths);
+      await window.api.invoke('set-setting', 'searchPaths', newPaths);
       renderPaths(newPaths);
     });
   });
@@ -151,7 +150,7 @@ function setupPositionGrid() {
   positionGrid.querySelectorAll('.position-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const position = btn.dataset.position;
-      await ipcRenderer.invoke('set-setting', 'position', position);
+      await window.api.invoke('set-setting', 'position', position);
 
       positionGrid.querySelectorAll('.position-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -164,19 +163,19 @@ function setupSliders() {
     const size = parseInt(e.target.value);
     fontSizeValue.textContent = size;
     applyFontSize(size);
-    await ipcRenderer.invoke('set-setting', 'fontSize', size);
+    await window.api.invoke('set-setting', 'fontSize', size);
   });
 
   opacitySlider.addEventListener('input', async (e) => {
     const opacity = parseInt(e.target.value);
     opacityValue.textContent = opacity;
-    await ipcRenderer.invoke('set-setting', 'opacity', opacity);
+    await window.api.invoke('set-setting', 'opacity', opacity);
   });
 
   maxResultsSlider.addEventListener('input', async (e) => {
     const maxResults = parseInt(e.target.value);
     maxResultsValue.textContent = maxResults;
-    await ipcRenderer.invoke('set-setting', 'maxResults', maxResults);
+    await window.api.invoke('set-setting', 'maxResults', maxResults);
     search.refreshSearch();
   });
 }
@@ -204,7 +203,7 @@ function setupHotkeyInput() {
 
       if (parts.length >= 2) {
         const hotkey = parts.join('+');
-        const result = await ipcRenderer.invoke('set-setting', 'hotkey', hotkey);
+        const result = await window.api.invoke('set-setting', 'hotkey', hotkey);
 
         if (result.success) {
           hotkeyDisplay.textContent = formatHotkey(hotkey);
@@ -232,7 +231,7 @@ function setupThemeButtons() {
   themeButtons.querySelectorAll('.theme-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const theme = btn.dataset.theme;
-      await ipcRenderer.invoke('set-setting', 'theme', theme);
+      await window.api.invoke('set-setting', 'theme', theme);
 
       themeButtons.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -243,11 +242,11 @@ function setupThemeButtons() {
 
 function setupPathsUI() {
   addPathBtn.addEventListener('click', async () => {
-    const result = await ipcRenderer.invoke('select-folder');
+    const result = await window.api.invoke('select-folder');
     if (result) {
-      const settings = await ipcRenderer.invoke('get-settings');
+      const settings = await window.api.invoke('get-settings');
       const newPaths = [...(settings.searchPaths || []), result];
-      await ipcRenderer.invoke('set-setting', 'searchPaths', newPaths);
+      await window.api.invoke('set-setting', 'searchPaths', newPaths);
       renderPaths(newPaths);
     }
   });
@@ -261,14 +260,14 @@ function setupExcludeTextarea() {
         .split('\n')
         .map(p => p.trim())
         .filter(p => p.length > 0);
-      await ipcRenderer.invoke('set-setting', 'excludePatterns', patterns);
+      await window.api.invoke('set-setting', 'excludePatterns', patterns);
     }, 500);
   });
 }
 
 function setupDirectoriesToggle() {
   showOnlyDirectoriesToggle.addEventListener('change', async () => {
-    await ipcRenderer.invoke('set-setting', 'showOnlyDirectories', showOnlyDirectoriesToggle.checked);
+    await window.api.invoke('set-setting', 'showOnlyDirectories', showOnlyDirectoriesToggle.checked);
     search.refreshSearch();
   });
 }
