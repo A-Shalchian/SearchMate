@@ -131,7 +131,11 @@ async function indexDirectory(dirPath, depth, maxDepth, batch, batchSize) {
         await indexDirectory(fullPath, depth + 1, maxDepth, batch, batchSize);
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    if (err.code !== 'EACCES' && err.code !== 'EPERM' && err.code !== 'EBUSY') {
+      console.error(`Index error in ${dirPath}:`, err.message);
+    }
+  }
 }
 
 async function searchDirectoryLive(dirPath, searchTerms, results, maxResults, depth, maxDepth) {
@@ -163,7 +167,11 @@ async function searchDirectoryLive(dirPath, searchTerms, results, maxResults, de
         await searchDirectoryLive(fullPath, searchTerms, results, maxResults, depth + 1, maxDepth);
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    if (err.code !== 'EACCES' && err.code !== 'EPERM' && err.code !== 'EBUSY') {
+      console.error(`Search error in ${dirPath}:`, err.message);
+    }
+  }
 }
 
 function getFileIndex() {
