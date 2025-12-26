@@ -3,8 +3,9 @@ const path = require('path');
 const chokidar = require('chokidar');
 const { SKIP_DIRS, SKIP_EXTENSIONS, INDEX_CONFIG } = require('../shared/constants');
 const { getSetting } = require('./settings');
-const { getMatchScore } = require('./search');
+const { getMatchScore, createTermPatterns } = require('./search');
 const db = require('./database');
+const logger = require('./logger');
 
 let fileIndex = [];
 let isIndexing = false;
@@ -14,10 +15,10 @@ let watcher = null;
 function loadIndexFromDatabase() {
   const count = db.getFileCount();
   if (count > 0) {
-    console.log(`Loading ${count} files from database...`);
+    logger.log(`Loading ${count} files from database...`);
     fileIndex = db.getAllFiles();
     indexReady = true;
-    console.log(`Loaded ${fileIndex.length} files from database`);
+    logger.log(`Loaded ${fileIndex.length} files from database`);
     return true;
   }
   return false;
@@ -46,7 +47,7 @@ async function fullIndex(onComplete) {
     ? customPaths
     : [process.env.USERPROFILE || process.env.HOME];
 
-  console.log('Starting full file indexing...');
+  logger.log('Starting full file indexing...');
   const startTime = Date.now();
 
   db.clearAllFiles();
@@ -68,7 +69,7 @@ async function fullIndex(onComplete) {
 
   isIndexing = false;
   indexReady = true;
-  console.log(`Indexing complete: ${fileIndex.length} files in ${Date.now() - startTime}ms`);
+  logger.log(`Indexing complete: ${fileIndex.length} files in ${Date.now() - startTime}ms`);
 
   if (onComplete) {
     onComplete(fileIndex.length);
@@ -80,11 +81,11 @@ async function backgroundRefresh(onComplete) {
   const hoursSinceIndex = lastIndexed ? (Date.now() - lastIndexed) / (1000 * 60 * 60) : Infinity;
 
   if (hoursSinceIndex < 1) {
-    console.log('Index is fresh, skipping background refresh');
+    logger.log('Index is fresh, skipping background refresh');
     return;
   }
 
-  console.log('Starting background refresh...');
+  logger.log('Starting background refresh...');
   setTimeout(async () => {
     await fullIndex(onComplete);
   }, 5000);
@@ -133,12 +134,12 @@ async function indexDirectory(dirPath, depth, maxDepth, batch, batchSize) {
     }
   } catch (err) {
     if (err.code !== 'EACCES' && err.code !== 'EPERM' && err.code !== 'EBUSY') {
-      console.error(`Index error in ${dirPath}:`, err.message);
+      logger.error(`Index error in ${dirPath}:`, err.message);
     }
   }
 }
 
-async function searchDirectoryLive(dirPath, searchTerms, results, maxResults, depth, maxDepth) {
+async function searchDirectoryLive(dirPath, termPatterns, results, maxResults, depth, maxDepth) {
   if (depth > maxDepth || results.length >= maxResults) return;
 
   try {
@@ -152,7 +153,7 @@ async function searchDirectoryLive(dirPath, searchTerms, results, maxResults, de
       }
 
       const fullPath = path.join(dirPath, entry.name);
-      const score = getMatchScore(entry.name, searchTerms);
+      const score = getMatchScore(entry.name, termPatterns);
 
       if (score > 0) {
         results.push({
@@ -164,12 +165,12 @@ async function searchDirectoryLive(dirPath, searchTerms, results, maxResults, de
       }
 
       if (entry.isDirectory() && depth < maxDepth) {
-        await searchDirectoryLive(fullPath, searchTerms, results, maxResults, depth + 1, maxDepth);
+        await searchDirectoryLive(fullPath, termPatterns, results, maxResults, depth + 1, maxDepth);
       }
     }
   } catch (err) {
     if (err.code !== 'EACCES' && err.code !== 'EPERM' && err.code !== 'EBUSY') {
-      console.error(`Search error in ${dirPath}:`, err.message);
+      logger.error(`Search error in ${dirPath}:`, err.message);
     }
   }
 }
@@ -226,7 +227,7 @@ function startWatcher() {
   const excludePatterns = getSetting('excludePatterns') || [];
   const ignored = [...SKIP_DIRS, ...excludePatterns].map(p => `**/${p}/**`);
 
-  console.log('Starting file watcher on:', watchPaths);
+  logger.log('Starting file watcher on:', watchPaths);
 
   watcher = chokidar.watch(watchPaths, {
     ignored: [/(^|[\/\\])\../, ...ignored],
@@ -252,7 +253,7 @@ function startWatcher() {
 
       db.insertFile(file);
       fileIndex.push(file);
-      console.log('File added:', filePath);
+      logger.log('File added:', filePath);
     })
     .on('addDir', (dirPath) => {
       if (shouldIgnore(dirPath)) return;
@@ -266,20 +267,20 @@ function startWatcher() {
 
       db.insertFile(file);
       fileIndex.push(file);
-      console.log('Directory added:', dirPath);
+      logger.log('Directory added:', dirPath);
     })
     .on('unlink', (filePath) => {
       db.deleteFile(filePath);
       fileIndex = fileIndex.filter(f => f.path !== filePath);
-      console.log('File removed:', filePath);
+      logger.log('File removed:', filePath);
     })
     .on('unlinkDir', (dirPath) => {
       db.deleteFilesByPathPrefix(dirPath);
       fileIndex = fileIndex.filter(f => !f.path.startsWith(dirPath));
-      console.log('Directory removed:', dirPath);
+      logger.log('Directory removed:', dirPath);
     })
     .on('error', (error) => {
-      console.error('Watcher error:', error);
+      logger.error('Watcher error:', error);
     });
 }
 
@@ -287,7 +288,7 @@ function stopWatcher() {
   if (watcher) {
     watcher.close();
     watcher = null;
-    console.log('File watcher stopped');
+    logger.log('File watcher stopped');
   }
 }
 
