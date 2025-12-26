@@ -1,6 +1,7 @@
 const contextMenu = require('./context-menu');
 const preview = require('./preview');
 const { applyFontSize } = require('./theme');
+const { escapeHtml, escapeRegex } = require('./utils');
 
 let searchInput = null;
 let resultsList = null;
@@ -220,16 +221,6 @@ function highlightText(text, searchTerms) {
   });
 
   return result;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function showEmptyState() {

@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { app } = require('electron');
+const logger = require('./logger');
 
 let db = null;
 
@@ -11,7 +12,7 @@ function getDbPath() {
 
 function initDatabase() {
   const dbPath = getDbPath();
-  console.log('Database path:', dbPath);
+  logger.log('Database path:', dbPath);
 
   db = new Database(dbPath);
 
@@ -35,7 +36,7 @@ function initDatabase() {
     )
   `);
 
-  console.log('Database initialized');
+  logger.log('Database initialized');
   return db;
 }
 
