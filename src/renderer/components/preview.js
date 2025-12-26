@@ -1,3 +1,5 @@
+const { escapeHtml } = require('./utils');
+
 let previewPanel = null;
 let previewTitle = null;
 let previewContent = null;
@@ -6,19 +8,7 @@ let previewClose = null;
 let isVisible = false;
 let currentPath = null;
 let hoverTimeout = null;
-
-const TEXT_EXTENSIONS = new Set([
-  '.txt', '.md', '.json', '.js', '.ts', '.jsx', '.tsx', '.css', '.scss', '.less',
-  '.html', '.htm', '.xml', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf',
-  '.py', '.rb', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.cs', '.go',
-  '.rs', '.swift', '.kt', '.scala', '.sh', '.bash', '.zsh', '.ps1', '.bat', '.cmd',
-  '.sql', '.graphql', '.vue', '.svelte', '.astro', '.env', '.gitignore', '.editorconfig',
-  '.prettierrc', '.eslintrc', '.babelrc', '.log'
-]);
-
-const IMAGE_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico'
-]);
+let loadId = 0;
 
 function init(elements) {
   previewPanel = elements.previewPanel;
@@ -67,13 +57,16 @@ async function loadPreview(filePath, fileName, isDirectory) {
   if (currentPath === filePath) return;
 
   currentPath = filePath;
+  loadId++;
+  const thisLoadId = loadId;
+
   previewTitle.textContent = fileName;
   previewContent.innerHTML = '<div class="preview-empty">Loading...</div>';
 
   try {
     const data = await window.api.invoke('get-file-preview', filePath, isDirectory);
 
-    if (currentPath !== filePath) return; // Path changed while loading
+    if (thisLoadId !== loadId) return;
 
     if (data.type === 'text') {
       previewContent.innerHTML = `<pre class="preview-text">${escapeHtml(data.content)}</pre>`;
@@ -87,6 +80,7 @@ async function loadPreview(filePath, fileName, isDirectory) {
       previewContent.innerHTML = `<div class="preview-empty">${data.message}</div>`;
     }
   } catch (err) {
+    if (thisLoadId !== loadId) return;
     previewContent.innerHTML = '<div class="preview-empty">Failed to load preview</div>';
   }
 }
@@ -145,12 +139,6 @@ function formatSize(bytes) {
 function formatDate(dateString) {
   const date = new Date(dateString);
   return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 function schedulePreview(filePath, fileName, isDirectory, delay = 1000) {

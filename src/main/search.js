@@ -1,15 +1,26 @@
-function getMatchScore(name, searchTerms) {
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function createTermPatterns(searchTerms) {
+  return searchTerms.map(term => ({
+    term,
+    separatorRegex: new RegExp(`[\\s_\\-.]${escapeRegex(term)}`, 'i')
+  }));
+}
+
+function getMatchScore(name, termPatterns) {
   const nameLower = name.toLowerCase();
   let score = 0;
 
-  for (const term of searchTerms) {
+  for (const { term, separatorRegex } of termPatterns) {
     if (!term) continue;
 
     if (nameLower === term) {
       score += 1000;
     } else if (nameLower.startsWith(term)) {
       score += 500 + (term.length * 10);
-    } else if (new RegExp(`[\\s_\\-.]${term}`, 'i').test(name)) {
+    } else if (separatorRegex.test(name)) {
       score += 300 + (term.length * 5);
     } else if (nameLower.includes(term)) {
       score += 100 + (term.length * 2);
@@ -40,10 +51,11 @@ function parseSearchQuery(query) {
 
 function searchIndex(fileIndex, query, maxResults) {
   const searchTerms = parseSearchQuery(query);
+  const termPatterns = createTermPatterns(searchTerms);
   const scored = [];
 
   for (const item of fileIndex) {
-    const score = getMatchScore(item.name, searchTerms);
+    const score = getMatchScore(item.name, termPatterns);
     if (score > 0) {
       scored.push({ ...item, score });
     }
@@ -61,4 +73,5 @@ module.exports = {
   fuzzyMatch,
   parseSearchQuery,
   searchIndex,
+  createTermPatterns,
 };

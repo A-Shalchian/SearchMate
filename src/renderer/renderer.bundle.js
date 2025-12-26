@@ -4,9 +4,28 @@
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
 
+  // src/renderer/components/utils.js
+  var require_utils = __commonJS({
+    "src/renderer/components/utils.js"(exports, module) {
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+      function escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+      module.exports = {
+        escapeHtml,
+        escapeRegex
+      };
+    }
+  });
+
   // src/renderer/components/preview.js
   var require_preview = __commonJS({
     "src/renderer/components/preview.js"(exports, module) {
+      var { escapeHtml } = require_utils();
       var previewPanel = null;
       var previewTitle = null;
       var previewContent = null;
@@ -14,6 +33,7 @@
       var isVisible = false;
       var currentPath = null;
       var hoverTimeout = null;
+      var loadId = 0;
       function init(elements) {
         previewPanel = elements.previewPanel;
         previewTitle = elements.previewTitle;
@@ -52,11 +72,13 @@
         if (!isVisible) return;
         if (currentPath === filePath) return;
         currentPath = filePath;
+        loadId++;
+        const thisLoadId = loadId;
         previewTitle.textContent = fileName;
         previewContent.innerHTML = '<div class="preview-empty">Loading...</div>';
         try {
           const data = await window.api.invoke("get-file-preview", filePath, isDirectory);
-          if (currentPath !== filePath) return;
+          if (thisLoadId !== loadId) return;
           if (data.type === "text") {
             previewContent.innerHTML = `<pre class="preview-text">${escapeHtml(data.content)}</pre>`;
           } else if (data.type === "image") {
@@ -69,6 +91,7 @@
             previewContent.innerHTML = `<div class="preview-empty">${data.message}</div>`;
           }
         } catch (err) {
+          if (thisLoadId !== loadId) return;
           previewContent.innerHTML = '<div class="preview-empty">Failed to load preview</div>';
         }
       }
@@ -120,11 +143,6 @@
       function formatDate(dateString) {
         const date = new Date(dateString);
         return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      }
-      function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
       }
       function schedulePreview(filePath, fileName, isDirectory, delay = 1e3) {
         clearHoverTimeout();
@@ -323,6 +341,7 @@
       var contextMenu2 = require_context_menu();
       var preview2 = require_preview();
       var { applyFontSize } = require_theme();
+      var { escapeHtml, escapeRegex } = require_utils();
       var searchInput = null;
       var resultsList = null;
       var emptyState = null;
@@ -503,14 +522,6 @@
           }
         });
         return result;
-      }
-      function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
-      }
-      function escapeRegex(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       }
       function showEmptyState() {
         results = [];
