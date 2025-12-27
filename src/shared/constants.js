@@ -38,6 +38,7 @@ const IPC_CHANNELS = {
   GET_INDEX_STATUS: 'get-index-status',
   REBUILD_INDEX: 'rebuild-index',
   INDEX_READY: 'index-ready',
+  INDEX_PROGRESS: 'index-progress',
 
   // File operations
   OPEN_PATH: 'open-path',

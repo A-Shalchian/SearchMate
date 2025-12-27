@@ -339,10 +339,20 @@ kbd {
 
 .loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
   padding: 20px;
   color: var(--text-secondary);
+}
+
+.index-path {
+  font-size: 11px;
+  opacity: 0.7;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spinner {
@@ -717,6 +727,32 @@ kbd {
 }
 
 .exclude-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.rebuild-btn {
+  padding: 8px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rebuild-btn:hover {
+  opacity: 0.9;
+}
+
+.rebuild-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.index-status {
+  margin-left: 10px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 

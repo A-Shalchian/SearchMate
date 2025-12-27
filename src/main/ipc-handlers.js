@@ -10,6 +10,14 @@ const { openPath, openInExplorer, openFolder, openInVscode, openInTerminal, open
 const { hideWindow, getMainWindow, updateWindowPosition, updateWindowOpacity } = require('./window');
 const { registerHotkey } = require('./hotkey');
 
+function createProgressCallback() {
+  const mainWindow = getMainWindow();
+  if (!mainWindow) return null;
+  return (progress) => {
+    mainWindow.webContents.send(IPC_CHANNELS.INDEX_PROGRESS, progress);
+  };
+}
+
 function setupIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.SEARCH_FILES, async (event, query) => {
     try {
@@ -59,7 +67,8 @@ function setupIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.REBUILD_INDEX, async () => {
     try {
       resetIndex();
-      await buildFileIndex();
+      const onProgress = createProgressCallback();
+      await buildFileIndex(null, true, onProgress);
       return getIndexStatus();
     } catch (err) {
       logger.error('Rebuild index error:', err.message);
@@ -169,9 +178,10 @@ function setupIpcHandlers() {
         }
 
         if (key === 'searchPaths' || key === 'excludePatterns') {
+          const onProgress = createProgressCallback();
           buildFileIndex(() => {
             startWatcher();
-          });
+          }, false, onProgress);
         }
       }
 

@@ -369,6 +369,15 @@
         window.api.on("index-ready", (count) => {
           console.log(`Index ready with ${count} files`);
         });
+        window.api.on("index-progress", (progress) => {
+          if (progress.status === "starting") {
+            showIndexing(0);
+          } else if (progress.status === "indexing") {
+            showIndexing(progress.filesProcessed, progress.currentPath);
+          } else if (progress.status === "complete") {
+            showIndexComplete(progress.filesProcessed);
+          }
+        });
         showEmptyState();
       }
       function handleInput(e) {
@@ -543,6 +552,29 @@
         resultsList.classList.add("hidden");
         resultCount.textContent = "Error";
       }
+      function showIndexing(filesProcessed, currentPath = "") {
+        const fileCountText = filesProcessed.toLocaleString();
+        const pathText = currentPath ? truncatePath(currentPath) : "";
+        const message = pathText ? `Indexing... ${fileCountText} files<br><span class="index-path">${escapeHtml(pathText)}</span>` : `Indexing... ${fileCountText} files`;
+        emptyState.innerHTML = `<div class="loading"><div class="spinner"></div>${message}</div>`;
+        emptyState.classList.remove("hidden");
+        resultsList.classList.add("hidden");
+        resultCount.textContent = `Indexing... ${fileCountText}`;
+      }
+      function showIndexComplete(totalFiles) {
+        const fileCountText = totalFiles.toLocaleString();
+        resultCount.textContent = `Indexed ${fileCountText} files`;
+        setTimeout(() => {
+          if (!searchInput.value.trim()) {
+            showEmptyState();
+          }
+        }, 2e3);
+      }
+      function truncatePath(filePath) {
+        const maxLength = 50;
+        if (filePath.length <= maxLength) return filePath;
+        return "..." + filePath.slice(-maxLength + 3);
+      }
       async function openPath(filePath) {
         const result = await window.api.invoke("open-path", filePath);
         if (result.success) {
@@ -606,6 +638,8 @@
       var excludeTextarea = null;
       var searchInput = null;
       var showOnlyDirectoriesToggle = null;
+      var rebuildIndexBtn = null;
+      var indexStatus = null;
       var settingsOpen = false;
       var recordingHotkey = false;
       var excludeTimeout = null;
@@ -628,6 +662,8 @@
         excludeTextarea = elements.excludeTextarea;
         searchInput = elements.searchInput;
         showOnlyDirectoriesToggle = elements.showOnlyDirectoriesToggle;
+        rebuildIndexBtn = elements.rebuildIndexBtn;
+        indexStatus = elements.indexStatus;
         settingsBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           open();
@@ -643,6 +679,7 @@
         setupPathsUI();
         setupExcludeTextarea();
         setupDirectoriesToggle();
+        setupRebuildButton();
         setupKeyboardShortcuts();
         setupClickOutside();
         window.api.on("theme-changed", (theme) => {
@@ -812,6 +849,27 @@
           search2.refreshSearch();
         });
       }
+      function setupRebuildButton() {
+        rebuildIndexBtn.addEventListener("click", async () => {
+          rebuildIndexBtn.disabled = true;
+          indexStatus.textContent = "Starting...";
+          try {
+            await window.api.invoke("rebuild-index");
+          } catch (err) {
+            indexStatus.textContent = "Error";
+          }
+          rebuildIndexBtn.disabled = false;
+        });
+        window.api.on("index-progress", (progress) => {
+          if (progress.status === "starting") {
+            indexStatus.textContent = "Starting...";
+          } else if (progress.status === "indexing") {
+            indexStatus.textContent = `${progress.filesProcessed.toLocaleString()} files`;
+          } else if (progress.status === "complete") {
+            indexStatus.textContent = `Done: ${progress.filesProcessed.toLocaleString()} files`;
+          }
+        });
+      }
       function setupKeyboardShortcuts() {
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape" && settingsOpen) {
@@ -868,6 +926,8 @@
       addPathBtn: document.getElementById("addPathBtn"),
       excludeTextarea: document.getElementById("excludeTextarea"),
       showOnlyDirectoriesToggle: document.getElementById("showOnlyDirectoriesToggle"),
+      rebuildIndexBtn: document.getElementById("rebuildIndexBtn"),
+      indexStatus: document.getElementById("indexStatus"),
       previewPanel: document.getElementById("previewPanel"),
       previewTitle: document.getElementById("previewTitle"),
       previewContent: document.getElementById("previewContent"),

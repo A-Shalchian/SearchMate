@@ -38,6 +38,16 @@ function init(elements) {
     console.log(`Index ready with ${count} files`);
   });
 
+  window.api.on('index-progress', (progress) => {
+    if (progress.status === 'starting') {
+      showIndexing(0);
+    } else if (progress.status === 'indexing') {
+      showIndexing(progress.filesProcessed, progress.currentPath);
+    } else if (progress.status === 'complete') {
+      showIndexComplete(progress.filesProcessed);
+    }
+  });
+
   showEmptyState();
 }
 
@@ -244,6 +254,36 @@ function showError() {
   emptyState.classList.remove('hidden');
   resultsList.classList.add('hidden');
   resultCount.textContent = 'Error';
+}
+
+function showIndexing(filesProcessed, currentPath = '') {
+  const fileCountText = filesProcessed.toLocaleString();
+  const pathText = currentPath ? truncatePath(currentPath) : '';
+  const message = pathText
+    ? `Indexing... ${fileCountText} files<br><span class="index-path">${escapeHtml(pathText)}</span>`
+    : `Indexing... ${fileCountText} files`;
+
+  emptyState.innerHTML = `<div class="loading"><div class="spinner"></div>${message}</div>`;
+  emptyState.classList.remove('hidden');
+  resultsList.classList.add('hidden');
+  resultCount.textContent = `Indexing... ${fileCountText}`;
+}
+
+function showIndexComplete(totalFiles) {
+  const fileCountText = totalFiles.toLocaleString();
+  resultCount.textContent = `Indexed ${fileCountText} files`;
+  // Return to empty state after a moment
+  setTimeout(() => {
+    if (!searchInput.value.trim()) {
+      showEmptyState();
+    }
+  }, 2000);
+}
+
+function truncatePath(filePath) {
+  const maxLength = 50;
+  if (filePath.length <= maxLength) return filePath;
+  return '...' + filePath.slice(-maxLength + 3);
 }
 
 async function openPath(filePath) {

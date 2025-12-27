@@ -24,21 +24,21 @@ function loadIndexFromDatabase() {
   return false;
 }
 
-async function buildFileIndex(onComplete, forceRebuild = false) {
+async function buildFileIndex(onComplete, forceRebuild = false, onProgress = null) {
   if (isIndexing) return;
 
   if (!forceRebuild && loadIndexFromDatabase()) {
     if (onComplete) {
       onComplete(fileIndex.length);
     }
-    backgroundRefresh(onComplete);
+    backgroundRefresh(onComplete, onProgress);
     return;
   }
 
-  await fullIndex(onComplete);
+  await fullIndex(onComplete, onProgress);
 }
 
-async function fullIndex(onComplete) {
+async function fullIndex(onComplete, onProgress = null) {
   isIndexing = true;
   fileIndex = [];
 
@@ -50,18 +50,24 @@ async function fullIndex(onComplete) {
   logger.log('Starting full file indexing...');
   const startTime = Date.now();
 
+  if (onProgress) {
+    onProgress({ status: 'starting', filesProcessed: 0 });
+  }
+
   db.clearAllFiles();
 
   let batch = [];
   const BATCH_SIZE = 1000;
+  const progress = { filesProcessed: 0, currentPath: '' };
 
   for (const basePath of searchPaths) {
-    await indexDirectory(basePath, 0, INDEX_CONFIG.maxDepth, batch, BATCH_SIZE);
+    await indexDirectory(basePath, 0, INDEX_CONFIG.maxDepth, batch, BATCH_SIZE, progress, onProgress);
   }
 
   if (batch.length > 0) {
     db.insertFiles(batch);
     fileIndex.push(...batch);
+    progress.filesProcessed += batch.length;
   }
 
   db.setMetadata('lastIndexed', Date.now());
@@ -71,12 +77,16 @@ async function fullIndex(onComplete) {
   indexReady = true;
   logger.log(`Indexing complete: ${fileIndex.length} files in ${Date.now() - startTime}ms`);
 
+  if (onProgress) {
+    onProgress({ status: 'complete', filesProcessed: fileIndex.length });
+  }
+
   if (onComplete) {
     onComplete(fileIndex.length);
   }
 }
 
-async function backgroundRefresh(onComplete) {
+async function backgroundRefresh(onComplete, onProgress = null) {
   const lastIndexed = db.getMetadata('lastIndexed');
   const hoursSinceIndex = lastIndexed ? (Date.now() - lastIndexed) / (1000 * 60 * 60) : Infinity;
 
@@ -87,15 +97,19 @@ async function backgroundRefresh(onComplete) {
 
   logger.log('Starting background refresh...');
   setTimeout(async () => {
-    await fullIndex(onComplete);
+    await fullIndex(onComplete, onProgress);
   }, 5000);
 }
 
-async function indexDirectory(dirPath, depth, maxDepth, batch, batchSize) {
+async function indexDirectory(dirPath, depth, maxDepth, batch, batchSize, progress = null, onProgress = null) {
   if (depth > maxDepth) return;
 
   const excludePatterns = getSetting('excludePatterns') || [];
   const skipSet = new Set([...SKIP_DIRS, ...excludePatterns]);
+
+  if (progress) {
+    progress.currentPath = dirPath;
+  }
 
   try {
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
@@ -125,11 +139,18 @@ async function indexDirectory(dirPath, depth, maxDepth, batch, batchSize) {
       if (batch.length >= batchSize) {
         db.insertFiles(batch);
         fileIndex.push(...batch);
+        if (progress) {
+          progress.filesProcessed += batch.length;
+        }
         batch.length = 0;
+
+        if (onProgress && progress) {
+          onProgress({ status: 'indexing', filesProcessed: progress.filesProcessed, currentPath: dirPath });
+        }
       }
 
       if (isDir && depth < maxDepth) {
-        await indexDirectory(fullPath, depth + 1, maxDepth, batch, batchSize);
+        await indexDirectory(fullPath, depth + 1, maxDepth, batch, batchSize, progress, onProgress);
       }
     }
   } catch (err) {

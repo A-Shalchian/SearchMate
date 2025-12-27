@@ -19,6 +19,8 @@ let addPathBtn = null;
 let excludeTextarea = null;
 let searchInput = null;
 let showOnlyDirectoriesToggle = null;
+let rebuildIndexBtn = null;
+let indexStatus = null;
 
 let settingsOpen = false;
 let recordingHotkey = false;
@@ -43,6 +45,8 @@ function init(elements) {
   excludeTextarea = elements.excludeTextarea;
   searchInput = elements.searchInput;
   showOnlyDirectoriesToggle = elements.showOnlyDirectoriesToggle;
+  rebuildIndexBtn = elements.rebuildIndexBtn;
+  indexStatus = elements.indexStatus;
 
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -62,6 +66,7 @@ function init(elements) {
   setupPathsUI();
   setupExcludeTextarea();
   setupDirectoriesToggle();
+  setupRebuildButton();
   setupKeyboardShortcuts();
   setupClickOutside();
 
@@ -269,6 +274,31 @@ function setupDirectoriesToggle() {
   showOnlyDirectoriesToggle.addEventListener('change', async () => {
     await window.api.invoke('set-setting', 'showOnlyDirectories', showOnlyDirectoriesToggle.checked);
     search.refreshSearch();
+  });
+}
+
+function setupRebuildButton() {
+  rebuildIndexBtn.addEventListener('click', async () => {
+    rebuildIndexBtn.disabled = true;
+    indexStatus.textContent = 'Starting...';
+
+    try {
+      await window.api.invoke('rebuild-index');
+    } catch (err) {
+      indexStatus.textContent = 'Error';
+    }
+
+    rebuildIndexBtn.disabled = false;
+  });
+
+  window.api.on('index-progress', (progress) => {
+    if (progress.status === 'starting') {
+      indexStatus.textContent = 'Starting...';
+    } else if (progress.status === 'indexing') {
+      indexStatus.textContent = `${progress.filesProcessed.toLocaleString()} files`;
+    } else if (progress.status === 'complete') {
+      indexStatus.textContent = `Done: ${progress.filesProcessed.toLocaleString()} files`;
+    }
   });
 }
 

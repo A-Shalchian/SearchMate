@@ -28,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
     addPathBtn: document.getElementById('addPathBtn'),
     excludeTextarea: document.getElementById('excludeTextarea'),
     showOnlyDirectoriesToggle: document.getElementById('showOnlyDirectoriesToggle'),
+    rebuildIndexBtn: document.getElementById('rebuildIndexBtn'),
+    indexStatus: document.getElementById('indexStatus'),
     previewPanel: document.getElementById('previewPanel'),
     previewTitle: document.getElementById('previewTitle'),
     previewContent: document.getElementById('previewContent'),

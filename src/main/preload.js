@@ -25,6 +25,7 @@ const VALID_RECEIVE_CHANNELS = [
   'window-shown',
   'window-hidden',
   'index-ready',
+  'index-progress',
   'theme-changed',
 ];
 
