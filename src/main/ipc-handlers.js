@@ -1,8 +1,8 @@
-const { ipcMain, dialog } = require('electron');
+const { ipcMain, dialog, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
-const { IPC_CHANNELS, INDEX_CONFIG } = require('../shared/constants');
+const { IPC_CHANNELS, INDEX_CONFIG, RECENT_SEARCHES_MAX } = require('../shared/constants');
 const { getSetting, setSetting, getAllSettings } = require('./settings');
 const { getFileIndex, getIndexStatus, buildFileIndex, searchDirectoryLive, isIndexReady, resetIndex, startWatcher } = require('./indexer');
 const { searchIndex, parseSearchQuery, createTermPatterns } = require('./search');
@@ -185,6 +185,12 @@ function setupIpcHandlers() {
         }
       }
 
+      if (key === 'launchOnStartup') {
+        app.setLoginItemSettings({
+          openAtLogin: value,
+        });
+      }
+
       return { success: true };
     } catch (err) {
       logger.error('Set setting error:', err.message);
@@ -266,6 +272,51 @@ function setupIpcHandlers() {
     } catch (err) {
       logger.error('File preview error:', err.message);
       return { type: 'error', message: 'Cannot preview this file' };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.ADD_RECENT_SEARCH, (event, query) => {
+    try {
+      if (!query || query.trim().length < 2) return { success: true };
+
+      const trimmedQuery = query.trim();
+      let recentSearches = getSetting('recentSearches') || [];
+
+      // Remove duplicate if exists
+      recentSearches = recentSearches.filter(s => s.toLowerCase() !== trimmedQuery.toLowerCase());
+
+      // Add to beginning
+      recentSearches.unshift(trimmedQuery);
+
+      // Keep only max items
+      if (recentSearches.length > RECENT_SEARCHES_MAX) {
+        recentSearches = recentSearches.slice(0, RECENT_SEARCHES_MAX);
+      }
+
+      setSetting('recentSearches', recentSearches);
+      return { success: true };
+    } catch (err) {
+      logger.error('Add recent search error:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_RECENT_SEARCHES, () => {
+    try {
+      return getSetting('recentSearches') || [];
+    } catch (err) {
+      logger.error('Get recent searches error:', err.message);
+      return [];
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLEAR_RECENT_SEARCHES, () => {
+    try {
+      setSetting('recentSearches', []);
+      return { success: true };
+    } catch (err) {
+      logger.error('Clear recent searches error:', err.message);
+      return { success: false, error: err.message };
     }
   });
 }
