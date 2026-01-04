@@ -177,6 +177,7 @@
     "src/renderer/components/context-menu.js"(exports, module) {
       var preview2 = require_preview();
       var contextMenuTarget = null;
+      var currentSearchQuery = "";
       var contextMenuIndex = -1;
       var contextMenu2 = null;
       function init(menuElement) {
@@ -190,6 +191,9 @@
               case "open":
                 const result = await window.api.invoke("open-path", filePath);
                 if (result.success) {
+                  if (currentSearchQuery && currentSearchQuery.trim().length >= 2) {
+                    window.api.invoke("add-recent-search", currentSearchQuery.trim());
+                  }
                   window.api.send("hide-window");
                 }
                 break;
@@ -297,13 +301,17 @@
       function getTarget() {
         return contextMenuTarget;
       }
+      function setSearchQuery(query) {
+        currentSearchQuery = query || "";
+      }
       module.exports = {
         init,
         show,
         hide,
         isVisible,
         handleKeydown,
-        getTarget
+        getTarget,
+        setSearchQuery
       };
     }
   });
@@ -349,6 +357,7 @@
       var results = [];
       var selectedIndex = -1;
       var searchTimeout = null;
+      var currentQuery = "";
       function init(elements) {
         searchInput = elements.searchInput;
         resultsList = elements.resultsList;
@@ -382,6 +391,8 @@
       }
       function handleInput(e) {
         const query = e.target.value;
+        currentQuery = query;
+        contextMenu2.setSearchQuery(query);
         if (searchTimeout) {
           clearTimeout(searchTimeout);
         }
@@ -578,6 +589,9 @@
       async function openPath(filePath) {
         const result = await window.api.invoke("open-path", filePath);
         if (result.success) {
+          if (currentQuery && currentQuery.trim().length >= 2) {
+            window.api.invoke("add-recent-search", currentQuery.trim());
+          }
           window.api.send("hide-window");
         }
       }
@@ -638,6 +652,9 @@
       var excludeTextarea = null;
       var searchInput = null;
       var showOnlyDirectoriesToggle = null;
+      var launchOnStartupToggle = null;
+      var recentSearchesList = null;
+      var clearRecentBtn = null;
       var rebuildIndexBtn = null;
       var indexStatus = null;
       var settingsOpen = false;
@@ -662,6 +679,9 @@
         excludeTextarea = elements.excludeTextarea;
         searchInput = elements.searchInput;
         showOnlyDirectoriesToggle = elements.showOnlyDirectoriesToggle;
+        launchOnStartupToggle = elements.launchOnStartupToggle;
+        recentSearchesList = elements.recentSearchesList;
+        clearRecentBtn = elements.clearRecentBtn;
         rebuildIndexBtn = elements.rebuildIndexBtn;
         indexStatus = elements.indexStatus;
         settingsBtn.addEventListener("click", (e) => {
@@ -679,6 +699,8 @@
         setupPathsUI();
         setupExcludeTextarea();
         setupDirectoriesToggle();
+        setupLaunchOnStartup();
+        setupRecentSearches();
         setupRebuildButton();
         setupKeyboardShortcuts();
         setupClickOutside();
@@ -687,9 +709,11 @@
         });
         load();
       }
-      function open() {
+      async function open() {
         settingsPanel.classList.add("visible");
         settingsOpen = true;
+        const searches = await window.api.invoke("get-recent-searches");
+        renderRecentSearches(searches);
       }
       function close() {
         settingsPanel.classList.remove("visible");
@@ -717,6 +741,8 @@
         renderPaths(settings2.searchPaths || []);
         excludeTextarea.value = (settings2.excludePatterns || []).join("\n");
         showOnlyDirectoriesToggle.checked = settings2.showOnlyDirectories || false;
+        launchOnStartupToggle.checked = settings2.launchOnStartup || false;
+        renderRecentSearches(settings2.recentSearches || []);
         applyFontSize(settings2.fontSize);
         applyTheme(settings2.theme);
       }
@@ -849,6 +875,39 @@
           search2.refreshSearch();
         });
       }
+      function setupLaunchOnStartup() {
+        launchOnStartupToggle.addEventListener("change", async () => {
+          await window.api.invoke("set-setting", "launchOnStartup", launchOnStartupToggle.checked);
+        });
+      }
+      function setupRecentSearches() {
+        clearRecentBtn.addEventListener("click", async () => {
+          await window.api.invoke("clear-recent-searches");
+          renderRecentSearches([]);
+        });
+      }
+      function renderRecentSearches(searches) {
+        if (!searches || searches.length === 0) {
+          recentSearchesList.innerHTML = '<span class="no-recent">No recent searches</span>';
+          return;
+        }
+        recentSearchesList.innerHTML = searches.map((query) => `
+    <div class="recent-search-item" title="${query}">
+      <span class="recent-search-text">${query}</span>
+    </div>
+  `).join("");
+        recentSearchesList.querySelectorAll(".recent-search-item").forEach((item, index) => {
+          item.addEventListener("click", () => {
+            const query = searches[index];
+            const searchInputEl = document.getElementById("searchInput");
+            if (searchInputEl) {
+              searchInputEl.value = query;
+              searchInputEl.dispatchEvent(new Event("input"));
+              close();
+            }
+          });
+        });
+      }
       function setupRebuildButton() {
         rebuildIndexBtn.addEventListener("click", async () => {
           rebuildIndexBtn.disabled = true;
@@ -926,6 +985,9 @@
       addPathBtn: document.getElementById("addPathBtn"),
       excludeTextarea: document.getElementById("excludeTextarea"),
       showOnlyDirectoriesToggle: document.getElementById("showOnlyDirectoriesToggle"),
+      launchOnStartupToggle: document.getElementById("launchOnStartupToggle"),
+      recentSearchesList: document.getElementById("recentSearchesList"),
+      clearRecentBtn: document.getElementById("clearRecentBtn"),
       rebuildIndexBtn: document.getElementById("rebuildIndexBtn"),
       indexStatus: document.getElementById("indexStatus"),
       previewPanel: document.getElementById("previewPanel"),

@@ -26,6 +26,8 @@ function getAllSettings() {
     maxResults: getSetting('maxResults'),
     theme: getSetting('theme'),
     showOnlyDirectories: getSetting('showOnlyDirectories'),
+    recentSearches: getSetting('recentSearches'),
+    launchOnStartup: getSetting('launchOnStartup'),
   };
 }
 

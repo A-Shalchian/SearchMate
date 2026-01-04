@@ -1,6 +1,7 @@
 const preview = require('./preview');
 
 let contextMenuTarget = null;
+let currentSearchQuery = '';
 let contextMenuIndex = -1;
 let contextMenu = null;
 
@@ -18,6 +19,10 @@ function init(menuElement) {
         case 'open':
           const result = await window.api.invoke('open-path', filePath);
           if (result.success) {
+            // Save to recent searches
+            if (currentSearchQuery && currentSearchQuery.trim().length >= 2) {
+              window.api.invoke('add-recent-search', currentSearchQuery.trim());
+            }
             window.api.send('hide-window');
           }
           break;
@@ -140,6 +145,10 @@ function getTarget() {
   return contextMenuTarget;
 }
 
+function setSearchQuery(query) {
+  currentSearchQuery = query || '';
+}
+
 module.exports = {
   init,
   show,
@@ -147,4 +156,5 @@ module.exports = {
   isVisible,
   handleKeydown,
   getTarget,
+  setSearchQuery,
 };

@@ -95,6 +95,20 @@
         </label>
       </div>
       <div class="setting-group">
+        <label class="setting-label">Launch on Startup</label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="launchOnStartupToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Recent Searches</label>
+        <div class="recent-searches-list" id="recentSearchesList">
+          <span class="no-recent">No recent searches</span>
+        </div>
+        <button class="clear-recent-btn" id="clearRecentBtn">Clear History</button>
+      </div>
+      <div class="setting-group">
         <label class="setting-label">Search Paths</label>
         <div class="paths-list" id="pathsList"></div>
         <button class="add-path-btn" id="addPathBtn">+ Add Path</button>

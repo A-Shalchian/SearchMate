@@ -11,6 +11,7 @@ let resultCount = null;
 let results = [];
 let selectedIndex = -1;
 let searchTimeout = null;
+let currentQuery = '';
 
 function init(elements) {
   searchInput = elements.searchInput;
@@ -53,6 +54,8 @@ function init(elements) {
 
 function handleInput(e) {
   const query = e.target.value;
+  currentQuery = query;
+  contextMenu.setSearchQuery(query);
 
   if (searchTimeout) {
     clearTimeout(searchTimeout);
@@ -289,6 +292,10 @@ function truncatePath(filePath) {
 async function openPath(filePath) {
   const result = await window.api.invoke('open-path', filePath);
   if (result.success) {
+    // Save to recent searches when a file is opened
+    if (currentQuery && currentQuery.trim().length >= 2) {
+      window.api.invoke('add-recent-search', currentQuery.trim());
+    }
     window.api.send('hide-window');
   }
 }
