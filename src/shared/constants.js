@@ -8,7 +8,11 @@ const DEFAULT_SETTINGS = {
   maxResults: 100,
   theme: 'system',
   showOnlyDirectories: false,
+  recentSearches: [],
+  launchOnStartup: false,
 };
+
+const RECENT_SEARCHES_MAX = 20;
 
 const WINDOW_CONFIG = {
   width: 700,
@@ -54,6 +58,10 @@ const IPC_CHANNELS = {
   SELECT_FOLDER: 'select-folder',
   GET_FILE_PREVIEW: 'get-file-preview',
 
+  ADD_RECENT_SEARCH: 'add-recent-search',
+  GET_RECENT_SEARCHES: 'get-recent-searches',
+  CLEAR_RECENT_SEARCHES: 'clear-recent-searches',
+
   HIDE_WINDOW: 'hide-window',
   WINDOW_SHOWN: 'window-shown',
   WINDOW_HIDDEN: 'window-hidden',
@@ -62,6 +70,7 @@ const IPC_CHANNELS = {
 
 module.exports = {
   DEFAULT_SETTINGS,
+  RECENT_SEARCHES_MAX,
   WINDOW_CONFIG,
   SKIP_DIRS,
   SKIP_EXTENSIONS,
