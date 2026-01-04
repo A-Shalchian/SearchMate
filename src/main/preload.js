@@ -15,6 +15,9 @@ const VALID_INVOKE_CHANNELS = [
   'set-setting',
   'select-folder',
   'get-file-preview',
+  'add-recent-search',
+  'get-recent-searches',
+  'clear-recent-searches',
 ];
 
 const VALID_SEND_CHANNELS = [
