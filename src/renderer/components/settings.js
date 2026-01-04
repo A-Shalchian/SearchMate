@@ -19,6 +19,9 @@ let addPathBtn = null;
 let excludeTextarea = null;
 let searchInput = null;
 let showOnlyDirectoriesToggle = null;
+let launchOnStartupToggle = null;
+let recentSearchesList = null;
+let clearRecentBtn = null;
 let rebuildIndexBtn = null;
 let indexStatus = null;
 
@@ -45,6 +48,9 @@ function init(elements) {
   excludeTextarea = elements.excludeTextarea;
   searchInput = elements.searchInput;
   showOnlyDirectoriesToggle = elements.showOnlyDirectoriesToggle;
+  launchOnStartupToggle = elements.launchOnStartupToggle;
+  recentSearchesList = elements.recentSearchesList;
+  clearRecentBtn = elements.clearRecentBtn;
   rebuildIndexBtn = elements.rebuildIndexBtn;
   indexStatus = elements.indexStatus;
 
@@ -66,6 +72,8 @@ function init(elements) {
   setupPathsUI();
   setupExcludeTextarea();
   setupDirectoriesToggle();
+  setupLaunchOnStartup();
+  setupRecentSearches();
   setupRebuildButton();
   setupKeyboardShortcuts();
   setupClickOutside();
@@ -77,9 +85,13 @@ function init(elements) {
   load();
 }
 
-function open() {
+async function open() {
   settingsPanel.classList.add('visible');
   settingsOpen = true;
+
+  // Refresh recent searches when opening settings
+  const searches = await window.api.invoke('get-recent-searches');
+  renderRecentSearches(searches);
 }
 
 function close() {
@@ -115,6 +127,8 @@ async function load() {
   renderPaths(settings.searchPaths || []);
   excludeTextarea.value = (settings.excludePatterns || []).join('\n');
   showOnlyDirectoriesToggle.checked = settings.showOnlyDirectories || false;
+  launchOnStartupToggle.checked = settings.launchOnStartup || false;
+  renderRecentSearches(settings.recentSearches || []);
 
   applyFontSize(settings.fontSize);
   applyTheme(settings.theme);
@@ -274,6 +288,45 @@ function setupDirectoriesToggle() {
   showOnlyDirectoriesToggle.addEventListener('change', async () => {
     await window.api.invoke('set-setting', 'showOnlyDirectories', showOnlyDirectoriesToggle.checked);
     search.refreshSearch();
+  });
+}
+
+function setupLaunchOnStartup() {
+  launchOnStartupToggle.addEventListener('change', async () => {
+    await window.api.invoke('set-setting', 'launchOnStartup', launchOnStartupToggle.checked);
+  });
+}
+
+function setupRecentSearches() {
+  clearRecentBtn.addEventListener('click', async () => {
+    await window.api.invoke('clear-recent-searches');
+    renderRecentSearches([]);
+  });
+}
+
+function renderRecentSearches(searches) {
+  if (!searches || searches.length === 0) {
+    recentSearchesList.innerHTML = '<span class="no-recent">No recent searches</span>';
+    return;
+  }
+
+  recentSearchesList.innerHTML = searches.map(query => `
+    <div class="recent-search-item" title="${query}">
+      <span class="recent-search-text">${query}</span>
+    </div>
+  `).join('');
+
+  // Click to search again
+  recentSearchesList.querySelectorAll('.recent-search-item').forEach((item, index) => {
+    item.addEventListener('click', () => {
+      const query = searches[index];
+      const searchInputEl = document.getElementById('searchInput');
+      if (searchInputEl) {
+        searchInputEl.value = query;
+        searchInputEl.dispatchEvent(new Event('input'));
+        close();
+      }
+    });
   });
 }
 
