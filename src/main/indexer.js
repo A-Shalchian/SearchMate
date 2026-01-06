@@ -255,6 +255,7 @@ function startWatcher() {
     persistent: true,
     ignoreInitial: true,
     depth: INDEX_CONFIG.maxDepth,
+    followSymlinks: false,  // Don't follow Windows junction points
     awaitWriteFinish: {
       stabilityThreshold: 300,
       pollInterval: 100
@@ -301,6 +302,8 @@ function startWatcher() {
       logger.log('Directory removed:', dirPath);
     })
     .on('error', (error) => {
+      // Ignore permission errors on Windows junction points
+      if (error.code === 'EPERM' || error.code === 'EACCES') return;
       logger.error('Watcher error:', error);
     });
 }

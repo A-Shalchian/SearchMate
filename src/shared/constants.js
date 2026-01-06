@@ -25,6 +25,10 @@ const SKIP_DIRS = new Set([
   'Windows', 'ProgramData', 'AppData', 'Recovery',
   '.git', '.svn', '.hg', 'cache', 'Cache', '.cache',
   'tmp', 'temp', 'Temp', '.tmp', '__pycache__',
+  // Windows junction points (legacy symlinks) - can't be watched
+  'Application Data', 'Local Settings', 'Cookies', 'NetHood',
+  'PrintHood', 'Recent', 'SendTo', 'Start Menu', 'Templates',
+  'My Documents', 'My Pictures', 'My Music', 'My Videos',
 ]);
 
 const SKIP_EXTENSIONS = new Set([

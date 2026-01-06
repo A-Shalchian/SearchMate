@@ -1,14 +1,22 @@
-const { BrowserWindow, screen } = require('electron');
+const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const { WINDOW_CONFIG, IPC_CHANNELS } = require('../shared/constants');
 const { getSetting } = require('./settings');
 
 let mainWindow = null;
 let isVisible = false;
+let ignoreBlur = false;
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  // Detect environments where transparent windows don't work well
+  // SESSIONNAME is 'Console' for local sessions, something else for remote
+  const sessionName = process.env.SESSIONNAME || '';
+  const isRemoteSession = sessionName && sessionName !== 'Console';
+  const hasGpuIssues = app.commandLine.hasSwitch('disable-gpu');
+  const useTransparency = !isRemoteSession && !hasGpuIssues;
 
   mainWindow = new BrowserWindow({
     width: WINDOW_CONFIG.width,
@@ -16,7 +24,8 @@ function createWindow() {
     x: Math.floor((screenWidth - WINDOW_CONFIG.width) / 2),
     y: Math.floor(screenHeight * 0.2),
     frame: false,
-    transparent: true,
+    transparent: useTransparency,
+    backgroundColor: useTransparency ? undefined : '#1a1a2e',
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -31,7 +40,9 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   mainWindow.on('blur', () => {
-    hideWindow();
+    if (!ignoreBlur) {
+      hideWindow();
+    }
   });
 
   mainWindow.on('closed', () => {
@@ -69,6 +80,7 @@ function getWindowPosition(display) {
 
 function showWindow() {
   if (mainWindow) {
+    ignoreBlur = true;
     const cursor = screen.getCursorScreenPoint();
     const activeDisplay = screen.getDisplayNearestPoint(cursor);
     const pos = getWindowPosition(activeDisplay);
@@ -79,6 +91,7 @@ function showWindow() {
     mainWindow.focus();
     mainWindow.webContents.send(IPC_CHANNELS.WINDOW_SHOWN);
     isVisible = true;
+    setTimeout(() => { ignoreBlur = false; }, 200);
   }
 }
 
