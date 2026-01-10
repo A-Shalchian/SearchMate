@@ -1,6 +1,6 @@
 {
   "name": "searchmate",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "A fast file search bar app for Windows",
   "main": "src/main/index.js",
   "scripts": {
