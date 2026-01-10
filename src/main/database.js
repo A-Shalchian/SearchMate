@@ -64,9 +64,13 @@ function insertFiles(files) {
   insertMany(files);
 }
 
-function searchFiles(searchTerms, limit = 100) {
+function searchFiles(searchTerms, limit = 100, showOnlyDirectories = false) {
   let query = `SELECT name, path, is_directory FROM files WHERE 1=1`;
   const params = [];
+
+  if (showOnlyDirectories) {
+    query += ` AND is_directory = 1`;
+  }
 
   for (const term of searchTerms) {
     query += ` AND name_lower LIKE ?`;
@@ -74,7 +78,7 @@ function searchFiles(searchTerms, limit = 100) {
   }
 
   query += ` LIMIT ?`;
-  params.push(limit);
+  params.push(limit * 3);
 
   const stmt = db.prepare(query);
   const rows = stmt.all(...params);

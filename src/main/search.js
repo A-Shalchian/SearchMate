@@ -49,12 +49,17 @@ function parseSearchQuery(query) {
   return query.toLowerCase().trim().split(/\s+/).filter(t => t.length > 0);
 }
 
-function searchIndex(fileIndex, query, maxResults) {
+function searchIndex(query, maxResults, showOnlyDirectories = false) {
+  const db = require('./database');
   const searchTerms = parseSearchQuery(query);
+
+  if (searchTerms.length === 0) return [];
+
+  const candidates = db.searchFiles(searchTerms, maxResults, showOnlyDirectories);
   const termPatterns = createTermPatterns(searchTerms);
   const scored = [];
 
-  for (const item of fileIndex) {
+  for (const item of candidates) {
     const score = getMatchScore(item.name, termPatterns);
     if (score > 0) {
       scored.push({ ...item, score });

@@ -7,7 +7,6 @@ const { getMatchScore, createTermPatterns } = require('./search');
 const db = require('./database');
 const logger = require('./logger');
 
-let fileIndex = [];
 let isIndexing = false;
 let indexReady = false;
 let watcher = null;
@@ -15,10 +14,8 @@ let watcher = null;
 function loadIndexFromDatabase() {
   const count = db.getFileCount();
   if (count > 0) {
-    logger.log(`Loading ${count} files from database...`);
-    fileIndex = db.getAllFiles();
+    logger.log(`Found ${count} files in database`);
     indexReady = true;
-    logger.log(`Loaded ${fileIndex.length} files from database`);
     return true;
   }
   return false;
@@ -29,7 +26,7 @@ async function buildFileIndex(onComplete, forceRebuild = false, onProgress = nul
 
   if (!forceRebuild && loadIndexFromDatabase()) {
     if (onComplete) {
-      onComplete(fileIndex.length);
+      onComplete(db.getFileCount());
     }
     backgroundRefresh(onComplete, onProgress);
     return;
@@ -40,7 +37,6 @@ async function buildFileIndex(onComplete, forceRebuild = false, onProgress = nul
 
 async function fullIndex(onComplete, onProgress = null) {
   isIndexing = true;
-  fileIndex = [];
 
   const customPaths = getSetting('searchPaths');
   const searchPaths = customPaths && customPaths.length > 0
@@ -66,7 +62,6 @@ async function fullIndex(onComplete, onProgress = null) {
 
   if (batch.length > 0) {
     db.insertFiles(batch);
-    fileIndex.push(...batch);
     progress.filesProcessed += batch.length;
   }
 
@@ -75,14 +70,16 @@ async function fullIndex(onComplete, onProgress = null) {
 
   isIndexing = false;
   indexReady = true;
-  logger.log(`Indexing complete: ${fileIndex.length} files in ${Date.now() - startTime}ms`);
+
+  const totalFiles = db.getFileCount();
+  logger.log(`Indexing complete: ${totalFiles} files in ${Date.now() - startTime}ms`);
 
   if (onProgress) {
-    onProgress({ status: 'complete', filesProcessed: fileIndex.length });
+    onProgress({ status: 'complete', filesProcessed: totalFiles });
   }
 
   if (onComplete) {
-    onComplete(fileIndex.length);
+    onComplete(totalFiles);
   }
 }
 
@@ -138,7 +135,6 @@ async function indexDirectory(dirPath, depth, maxDepth, batch, batchSize, progre
 
       if (batch.length >= batchSize) {
         db.insertFiles(batch);
-        fileIndex.push(...batch);
         if (progress) {
           progress.filesProcessed += batch.length;
         }
@@ -196,12 +192,8 @@ async function searchDirectoryLive(dirPath, termPatterns, results, maxResults, d
   }
 }
 
-function getFileIndex() {
-  return fileIndex;
-}
-
 function getIndexStatus() {
-  return { ready: indexReady, count: fileIndex.length, indexing: isIndexing };
+  return { ready: indexReady, count: db.getFileCount(), indexing: isIndexing };
 }
 
 function isIndexReady() {
@@ -274,7 +266,6 @@ function startWatcher() {
       };
 
       db.insertFile(file);
-      fileIndex.push(file);
       logger.log('File added:', filePath);
     })
     .on('addDir', (dirPath) => {
@@ -288,21 +279,17 @@ function startWatcher() {
       };
 
       db.insertFile(file);
-      fileIndex.push(file);
       logger.log('Directory added:', dirPath);
     })
     .on('unlink', (filePath) => {
       db.deleteFile(filePath);
-      fileIndex = fileIndex.filter(f => f.path !== filePath);
       logger.log('File removed:', filePath);
     })
     .on('unlinkDir', (dirPath) => {
       db.deleteFilesByPathPrefix(dirPath);
-      fileIndex = fileIndex.filter(f => !f.path.startsWith(dirPath));
       logger.log('Directory removed:', dirPath);
     })
     .on('error', (error) => {
-      // Ignore permission errors on Windows junction points
       if (error.code === 'EPERM' || error.code === 'EACCES') return;
       logger.error('Watcher error:', error);
     });
@@ -319,7 +306,6 @@ function stopWatcher() {
 module.exports = {
   buildFileIndex,
   searchDirectoryLive,
-  getFileIndex,
   getIndexStatus,
   isIndexReady,
   resetIndex,

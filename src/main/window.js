@@ -7,16 +7,40 @@ let mainWindow = null;
 let isVisible = false;
 let ignoreBlur = false;
 
+function isVirtualMachine() {
+  const envHints = [
+    process.env.VBOX_MSI_INSTALL_PATH,
+    process.env.VMWARE_ROOT,
+    process.env.QEMU_AUDIO_DRV,
+  ].some(Boolean);
+
+  const username = (process.env.USERNAME || process.env.USER || '').toLowerCase();
+  const vmUsernames = ['vboxuser', 'vagrant', 'packer', 'vmware'];
+  const hasVmUsername = vmUsernames.some(name => username.includes(name));
+
+  const computerName = (process.env.COMPUTERNAME || '').toLowerCase();
+  const vmComputerHints = ['virtualbox', 'vmware', 'qemu', 'hyperv', 'virtual'];
+  const hasVmComputerName = vmComputerHints.some(hint => computerName.includes(hint));
+
+  const fs = require('fs');
+  const vmPaths = [
+    'C:\\Program Files\\Oracle\\VirtualBox Guest Additions',
+    'C:\\Program Files\\VMware\\VMware Tools',
+  ];
+  const hasVmPaths = vmPaths.some(p => fs.existsSync(p));
+
+  return envHints || hasVmUsername || hasVmComputerName || hasVmPaths;
+}
+
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
-  // Detect environments where transparent windows don't work well
-  // SESSIONNAME is 'Console' for local sessions, something else for remote
   const sessionName = process.env.SESSIONNAME || '';
   const isRemoteSession = sessionName && sessionName !== 'Console';
   const hasGpuIssues = app.commandLine.hasSwitch('disable-gpu');
-  const useTransparency = !isRemoteSession && !hasGpuIssues;
+  const isVM = isVirtualMachine();
+  const useTransparency = !isRemoteSession && !hasGpuIssues && !isVM;
 
   mainWindow = new BrowserWindow({
     width: WINDOW_CONFIG.width,
@@ -79,20 +103,22 @@ function getWindowPosition(display) {
 }
 
 function showWindow() {
-  if (mainWindow) {
-    ignoreBlur = true;
-    const cursor = screen.getCursorScreenPoint();
-    const activeDisplay = screen.getDisplayNearestPoint(cursor);
-    const pos = getWindowPosition(activeDisplay);
-
-    mainWindow.setPosition(pos.x, pos.y);
-    mainWindow.setOpacity(getSetting('opacity') / 100);
-    mainWindow.show();
-    mainWindow.focus();
-    mainWindow.webContents.send(IPC_CHANNELS.WINDOW_SHOWN);
-    isVisible = true;
-    setTimeout(() => { ignoreBlur = false; }, 200);
+  if (!mainWindow) {
+    createWindow();
   }
+
+  ignoreBlur = true;
+  const cursor = screen.getCursorScreenPoint();
+  const activeDisplay = screen.getDisplayNearestPoint(cursor);
+  const pos = getWindowPosition(activeDisplay);
+
+  mainWindow.setPosition(pos.x, pos.y);
+  mainWindow.setOpacity(getSetting('opacity') / 100);
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send(IPC_CHANNELS.WINDOW_SHOWN);
+  isVisible = true;
+  setTimeout(() => { ignoreBlur = false; }, 200);
 }
 
 function hideWindow() {

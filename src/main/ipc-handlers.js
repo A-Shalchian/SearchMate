@@ -4,7 +4,7 @@ const path = require('path');
 const logger = require('./logger');
 const { IPC_CHANNELS, INDEX_CONFIG, RECENT_SEARCHES_MAX } = require('../shared/constants');
 const { getSetting, setSetting, getAllSettings } = require('./settings');
-const { getFileIndex, getIndexStatus, buildFileIndex, searchDirectoryLive, isIndexReady, resetIndex, startWatcher } = require('./indexer');
+const { getIndexStatus, buildFileIndex, searchDirectoryLive, isIndexReady, resetIndex, startWatcher } = require('./indexer');
 const { searchIndex, parseSearchQuery, createTermPatterns } = require('./search');
 const { openPath, openInExplorer, openFolder, openInVscode, openInTerminal, openTerminalClaude, openVscodeClaude } = require('./file-actions');
 const { hideWindow, getMainWindow, updateWindowPosition, updateWindowOpacity } = require('./window');
@@ -27,11 +27,10 @@ function setupIpcHandlers() {
 
       const maxResults = getSetting('maxResults') || 100;
       const showOnlyDirectories = getSetting('showOnlyDirectories') || false;
-      const fileIndex = getFileIndex();
 
       let results;
-      if (isIndexReady() && fileIndex.length > 0) {
-        results = searchIndex(fileIndex, query, maxResults * 2);
+      if (isIndexReady()) {
+        results = searchIndex(query, maxResults, showOnlyDirectories);
       } else {
         results = [];
         const searchPaths = [process.env.USERPROFILE || process.env.HOME];
@@ -39,13 +38,13 @@ function setupIpcHandlers() {
         const termPatterns = createTermPatterns(searchTerms);
 
         for (const basePath of searchPaths) {
-          if (results.length >= maxResults * 2) break;
-          await searchDirectoryLive(basePath, termPatterns, results, maxResults * 2, 0, INDEX_CONFIG.liveSearchMaxDepth);
+          if (results.length >= maxResults) break;
+          await searchDirectoryLive(basePath, termPatterns, results, maxResults, 0, INDEX_CONFIG.liveSearchMaxDepth);
         }
-      }
 
-      if (showOnlyDirectories) {
-        results = results.filter(item => item.isDirectory);
+        if (showOnlyDirectories) {
+          results = results.filter(item => item.isDirectory);
+        }
       }
 
       return results.slice(0, maxResults);
