@@ -18,6 +18,11 @@ const VALID_INVOKE_CHANNELS = [
   'add-recent-search',
   'get-recent-searches',
   'clear-recent-searches',
+  'check-for-updates',
+  'download-update',
+  'install-update',
+  'get-update-state',
+  'get-app-version',
 ];
 
 const VALID_SEND_CHANNELS = [
@@ -30,6 +35,12 @@ const VALID_RECEIVE_CHANNELS = [
   'index-ready',
   'index-progress',
   'theme-changed',
+  'update-status',
+  'update-available',
+  'update-not-available',
+  'update-progress',
+  'update-downloaded',
+  'update-error',
 ];
 
 contextBridge.exposeInMainWorld('api', {

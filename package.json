@@ -1,6 +1,6 @@
 {
   "name": "searchmate",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "A fast file search bar app for Windows",
   "main": "src/main/index.js",
   "scripts": {
@@ -30,11 +30,17 @@
   "dependencies": {
     "better-sqlite3": "^12.5.0",
     "chokidar": "^3.6.0",
-    "electron-store": "^10.1.0"
+    "electron-store": "^10.1.0",
+    "electron-updater": "^6.7.3"
   },
   "build": {
     "appId": "com.searchmate.app",
     "productName": "SearchMate",
+    "publish": {
+      "provider": "github",
+      "owner": "A-Shalchian",
+      "repo": "SearchMate"
+    },
     "directories": {
       "output": "dist"
     },

@@ -9,6 +9,7 @@ const { searchIndex, parseSearchQuery, createTermPatterns } = require('./search'
 const { openPath, openInExplorer, openFolder, openInVscode, openInTerminal, openTerminalClaude, openVscodeClaude } = require('./file-actions');
 const { hideWindow, getMainWindow, updateWindowPosition, updateWindowOpacity } = require('./window');
 const { registerHotkey } = require('./hotkey');
+const { checkForUpdates, downloadUpdate, installUpdate, getUpdateState } = require('./updater');
 
 function createProgressCallback() {
   const mainWindow = getMainWindow();
@@ -316,6 +317,49 @@ function setupIpcHandlers() {
     } catch (err) {
       logger.error('Clear recent searches error:', err.message);
       return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, () => {
+    return app.getVersion();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CHECK_FOR_UPDATES, async () => {
+    try {
+      const result = await checkForUpdates();
+      return { success: true, updateInfo: result?.updateInfo };
+    } catch (err) {
+      logger.error('Check for updates error:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DOWNLOAD_UPDATE, async () => {
+    try {
+      await downloadUpdate();
+      return { success: true };
+    } catch (err) {
+      logger.error('Download update error:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, () => {
+    try {
+      installUpdate();
+      return { success: true };
+    } catch (err) {
+      logger.error('Install update error:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_UPDATE_STATE, () => {
+    try {
+      return getUpdateState();
+    } catch (err) {
+      logger.error('Get update state error:', err.message);
+      return { updateAvailable: false, updateDownloaded: false, updateInfo: null };
     }
   });
 }

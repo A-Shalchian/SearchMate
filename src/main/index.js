@@ -8,6 +8,8 @@ const { setupIpcHandlers } = require('./ipc-handlers');
 const { toggleWindow, getMainWindow } = require('./window');
 const { IPC_CHANNELS } = require('../shared/constants');
 const { initDatabase, closeDatabase } = require('./database');
+const { initUpdater, checkForUpdates } = require('./updater');
+const logger = require('./logger');
 
 app.whenReady().then(async () => {
   await initStore();
@@ -28,6 +30,16 @@ app.whenReady().then(async () => {
     }
     startWatcher();
   });
+
+  initUpdater();
+
+  if (app.isPackaged) {
+    setTimeout(() => {
+      checkForUpdates().catch(err => {
+        logger.error('Initial update check failed:', err.message);
+      });
+    }, 5000);
+  }
 });
 
 app.on('will-quit', () => {

@@ -70,6 +70,19 @@ const IPC_CHANNELS = {
   WINDOW_SHOWN: 'window-shown',
   WINDOW_HIDDEN: 'window-hidden',
   THEME_CHANGED: 'theme-changed',
+
+  CHECK_FOR_UPDATES: 'check-for-updates',
+  DOWNLOAD_UPDATE: 'download-update',
+  INSTALL_UPDATE: 'install-update',
+  GET_UPDATE_STATE: 'get-update-state',
+  GET_APP_VERSION: 'get-app-version',
+
+  UPDATE_STATUS: 'update-status',
+  UPDATE_AVAILABLE: 'update-available',
+  UPDATE_NOT_AVAILABLE: 'update-not-available',
+  UPDATE_PROGRESS: 'update-progress',
+  UPDATE_DOWNLOADED: 'update-downloaded',
+  UPDATE_ERROR: 'update-error',
 };
 
 module.exports = {

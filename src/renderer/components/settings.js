@@ -24,6 +24,13 @@ let recentSearchesList = null;
 let clearRecentBtn = null;
 let rebuildIndexBtn = null;
 let indexStatus = null;
+let updateVersion = null;
+let updateStatusText = null;
+let checkUpdateBtn = null;
+let installUpdateBtn = null;
+let updateProgress = null;
+let updateProgressFill = null;
+let updateProgressText = null;
 
 let settingsOpen = false;
 let recordingHotkey = false;
@@ -53,6 +60,13 @@ function init(elements) {
   clearRecentBtn = elements.clearRecentBtn;
   rebuildIndexBtn = elements.rebuildIndexBtn;
   indexStatus = elements.indexStatus;
+  updateVersion = elements.updateVersion;
+  updateStatusText = elements.updateStatusText;
+  checkUpdateBtn = elements.checkUpdateBtn;
+  installUpdateBtn = elements.installUpdateBtn;
+  updateProgress = elements.updateProgress;
+  updateProgressFill = elements.updateProgressFill;
+  updateProgressText = elements.updateProgressText;
 
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -75,6 +89,7 @@ function init(elements) {
   setupLaunchOnStartup();
   setupRecentSearches();
   setupRebuildButton();
+  setupUpdateUI();
   setupKeyboardShortcuts();
   setupClickOutside();
 
@@ -353,6 +368,97 @@ function setupRebuildButton() {
       indexStatus.textContent = `Done: ${progress.filesProcessed.toLocaleString()} files`;
     }
   });
+}
+
+function setupUpdateUI() {
+  loadAppVersion();
+
+  checkUpdateBtn.addEventListener('click', async () => {
+    checkUpdateBtn.disabled = true;
+    updateStatusText.textContent = 'Checking...';
+    updateStatusText.className = 'update-status-text';
+
+    try {
+      const result = await window.api.invoke('check-for-updates');
+      if (!result.success) {
+        updateStatusText.textContent = result.error || 'Check failed';
+        updateStatusText.className = 'update-status-text error';
+        checkUpdateBtn.disabled = false;
+      }
+    } catch (err) {
+      updateStatusText.textContent = 'Failed to check';
+      updateStatusText.className = 'update-status-text error';
+      checkUpdateBtn.disabled = false;
+    }
+  });
+
+  installUpdateBtn.addEventListener('click', async () => {
+    installUpdateBtn.disabled = true;
+    installUpdateBtn.textContent = 'Restarting...';
+    await window.api.invoke('install-update');
+  });
+
+  window.api.on('update-available', (data) => {
+    updateStatusText.textContent = `Update available: v${data.version}`;
+    updateStatusText.className = 'update-status-text success';
+    checkUpdateBtn.textContent = 'Download Update';
+    checkUpdateBtn.disabled = false;
+    checkUpdateBtn.onclick = startDownload;
+  });
+
+  window.api.on('update-not-available', () => {
+    updateStatusText.textContent = 'You have the latest version';
+    updateStatusText.className = 'update-status-text success';
+    checkUpdateBtn.disabled = false;
+  });
+
+  window.api.on('update-progress', (data) => {
+    updateProgress.classList.add('visible');
+    updateProgressFill.style.width = `${data.percent}%`;
+    updateProgressText.textContent = `${data.percent}%`;
+    checkUpdateBtn.disabled = true;
+  });
+
+  window.api.on('update-downloaded', (data) => {
+    updateProgress.classList.remove('visible');
+    updateStatusText.textContent = `v${data.version} ready to install`;
+    updateStatusText.className = 'update-status-text success';
+    checkUpdateBtn.style.display = 'none';
+    installUpdateBtn.classList.add('visible');
+  });
+
+  window.api.on('update-error', (data) => {
+    updateStatusText.textContent = data.error || 'Update error';
+    updateStatusText.className = 'update-status-text error';
+    updateProgress.classList.remove('visible');
+    checkUpdateBtn.disabled = false;
+    checkUpdateBtn.textContent = 'Check for Updates';
+    checkUpdateBtn.onclick = null;
+  });
+}
+
+async function loadAppVersion() {
+  const version = await window.api.invoke('get-app-version');
+  updateVersion.textContent = `Version ${version}`;
+
+  const state = await window.api.invoke('get-update-state');
+  if (state.updateDownloaded) {
+    updateStatusText.textContent = `v${state.updateInfo?.version} ready to install`;
+    updateStatusText.className = 'update-status-text success';
+    checkUpdateBtn.style.display = 'none';
+    installUpdateBtn.classList.add('visible');
+  } else if (state.updateAvailable) {
+    updateStatusText.textContent = `Update available: v${state.updateInfo?.version}`;
+    updateStatusText.className = 'update-status-text success';
+    checkUpdateBtn.textContent = 'Download Update';
+    checkUpdateBtn.onclick = startDownload;
+  }
+}
+
+async function startDownload() {
+  checkUpdateBtn.disabled = true;
+  updateStatusText.textContent = 'Downloading...';
+  await window.api.invoke('download-update');
 }
 
 function setupKeyboardShortcuts() {

@@ -694,6 +694,13 @@
       var clearRecentBtn = null;
       var rebuildIndexBtn = null;
       var indexStatus = null;
+      var updateVersion = null;
+      var updateStatusText = null;
+      var checkUpdateBtn = null;
+      var installUpdateBtn = null;
+      var updateProgress = null;
+      var updateProgressFill = null;
+      var updateProgressText = null;
       var settingsOpen = false;
       var recordingHotkey = false;
       var excludeTimeout = null;
@@ -721,6 +728,13 @@
         clearRecentBtn = elements.clearRecentBtn;
         rebuildIndexBtn = elements.rebuildIndexBtn;
         indexStatus = elements.indexStatus;
+        updateVersion = elements.updateVersion;
+        updateStatusText = elements.updateStatusText;
+        checkUpdateBtn = elements.checkUpdateBtn;
+        installUpdateBtn = elements.installUpdateBtn;
+        updateProgress = elements.updateProgress;
+        updateProgressFill = elements.updateProgressFill;
+        updateProgressText = elements.updateProgressText;
         settingsBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           open();
@@ -739,6 +753,7 @@
         setupLaunchOnStartup();
         setupRecentSearches();
         setupRebuildButton();
+        setupUpdateUI();
         setupKeyboardShortcuts();
         setupClickOutside();
         window.api.on("theme-changed", (theme) => {
@@ -966,6 +981,85 @@
           }
         });
       }
+      function setupUpdateUI() {
+        loadAppVersion();
+        checkUpdateBtn.addEventListener("click", async () => {
+          checkUpdateBtn.disabled = true;
+          updateStatusText.textContent = "Checking...";
+          updateStatusText.className = "update-status-text";
+          try {
+            const result = await window.api.invoke("check-for-updates");
+            if (!result.success) {
+              updateStatusText.textContent = result.error || "Check failed";
+              updateStatusText.className = "update-status-text error";
+              checkUpdateBtn.disabled = false;
+            }
+          } catch (err) {
+            updateStatusText.textContent = "Failed to check";
+            updateStatusText.className = "update-status-text error";
+            checkUpdateBtn.disabled = false;
+          }
+        });
+        installUpdateBtn.addEventListener("click", async () => {
+          installUpdateBtn.disabled = true;
+          installUpdateBtn.textContent = "Restarting...";
+          await window.api.invoke("install-update");
+        });
+        window.api.on("update-available", (data) => {
+          updateStatusText.textContent = `Update available: v${data.version}`;
+          updateStatusText.className = "update-status-text success";
+          checkUpdateBtn.textContent = "Download Update";
+          checkUpdateBtn.disabled = false;
+          checkUpdateBtn.onclick = startDownload;
+        });
+        window.api.on("update-not-available", () => {
+          updateStatusText.textContent = "You have the latest version";
+          updateStatusText.className = "update-status-text success";
+          checkUpdateBtn.disabled = false;
+        });
+        window.api.on("update-progress", (data) => {
+          updateProgress.classList.add("visible");
+          updateProgressFill.style.width = `${data.percent}%`;
+          updateProgressText.textContent = `${data.percent}%`;
+          checkUpdateBtn.disabled = true;
+        });
+        window.api.on("update-downloaded", (data) => {
+          updateProgress.classList.remove("visible");
+          updateStatusText.textContent = `v${data.version} ready to install`;
+          updateStatusText.className = "update-status-text success";
+          checkUpdateBtn.style.display = "none";
+          installUpdateBtn.classList.add("visible");
+        });
+        window.api.on("update-error", (data) => {
+          updateStatusText.textContent = data.error || "Update error";
+          updateStatusText.className = "update-status-text error";
+          updateProgress.classList.remove("visible");
+          checkUpdateBtn.disabled = false;
+          checkUpdateBtn.textContent = "Check for Updates";
+          checkUpdateBtn.onclick = null;
+        });
+      }
+      async function loadAppVersion() {
+        const version = await window.api.invoke("get-app-version");
+        updateVersion.textContent = `Version ${version}`;
+        const state = await window.api.invoke("get-update-state");
+        if (state.updateDownloaded) {
+          updateStatusText.textContent = `v${state.updateInfo?.version} ready to install`;
+          updateStatusText.className = "update-status-text success";
+          checkUpdateBtn.style.display = "none";
+          installUpdateBtn.classList.add("visible");
+        } else if (state.updateAvailable) {
+          updateStatusText.textContent = `Update available: v${state.updateInfo?.version}`;
+          updateStatusText.className = "update-status-text success";
+          checkUpdateBtn.textContent = "Download Update";
+          checkUpdateBtn.onclick = startDownload;
+        }
+      }
+      async function startDownload() {
+        checkUpdateBtn.disabled = true;
+        updateStatusText.textContent = "Downloading...";
+        await window.api.invoke("download-update");
+      }
       function setupKeyboardShortcuts() {
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape" && settingsOpen) {
@@ -1027,6 +1121,13 @@
       clearRecentBtn: document.getElementById("clearRecentBtn"),
       rebuildIndexBtn: document.getElementById("rebuildIndexBtn"),
       indexStatus: document.getElementById("indexStatus"),
+      updateVersion: document.getElementById("updateVersion"),
+      updateStatusText: document.getElementById("updateStatusText"),
+      checkUpdateBtn: document.getElementById("checkUpdateBtn"),
+      installUpdateBtn: document.getElementById("installUpdateBtn"),
+      updateProgress: document.getElementById("updateProgress"),
+      updateProgressFill: document.getElementById("updateProgressFill"),
+      updateProgressText: document.getElementById("updateProgressText"),
       previewPanel: document.getElementById("previewPanel"),
       previewTitle: document.getElementById("previewTitle"),
       previewContent: document.getElementById("previewContent"),
